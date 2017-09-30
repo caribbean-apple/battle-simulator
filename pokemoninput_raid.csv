@@ -1,0 +1,7 @@
+atkr name or pokedex number,atkr fmove,atkr cmove,raid boss,boss fmove,boss cmove,atkr lvl,atkr atkIV,atkr defIV,atkr staIV,nOtherPlayers,nRepeats,dodgeCmovesIfFree?,randomness
+blissey,pound,hyper beam,raikou,average all non-legacy,thunder,40,15,15,13,7,200,FALSE,TRUE
+dragonite,dragon breath,dragon pulse,exeggutor,bullet seed,psychic,37.5,15,15,15,0,200,FALSE,TRUE
+dragonite,dragon breath,dragon pulse,exeggutor,bullet seed,psychic,37.5,15,15,15,0,200,FALSE,TRUE
+charizard,wing attack,fire blast,exeggutor,bullet seed,seed bomb,34.5,2,5,10,0,200,FALSE,TRUE
+dragonite,dragon breath,dragon pulse,exeggutor,bullet seed,seed bomb,38.5,15,15,15,0,200,FALSE,TRUE
+rhydon,mud slap,earthquake,raikou,thunder shock,thunder,29,14,11,2,12,200,FALSE,TRUE
