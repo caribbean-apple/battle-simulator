@@ -1,0 +1,48 @@
+atkr name or pokedex number,atkr fmove,atkr cmove,raid boss,boss fmove,boss cmove,atkr lvl,atkr atkIV,atkr defIV,atkr staIV,nOtherPlayers,nRepeats,dodgeCmovesIfFree?,randomness
+dragonite,dragon breath,dragon pulse,raikou,average all non-legacy,thunder,40,15,15,15,8,10,TRUE,TRUE
+dragonite,dragon tail,hurricane,raikou,average all non-legacy,thunder,40,15,15,15,8,10,TRUE,TRUE
+zapdos,charge beam,thunderbolt,raikou,average all non-legacy,thunder,40,14,15,15,8,10,TRUE,TRUE
+gyarados,bite,hydro pump,raikou,average all non-legacy,thunder,40,15,15,14,8,10,TRUE,TRUE
+blissey,pound,hyper beam,raikou,average all non-legacy,thunder,40,15,15,13,8,10,TRUE,TRUE
+tyranitar,bite,stone edge,raikou,average all non-legacy,thunder,30,15,12,14,8,10,TRUE,TRUE
+dragonite,dragon breath,dragon pulse,raikou,average all non-legacy,thunder,32.5,7,15,9,8,10,TRUE,TRUE
+gyarados,bite,hydro pump,raikou,average all non-legacy,thunder,35.5,15,11,15,8,10,TRUE,TRUE
+alakazam,psycho cut,psychic,raikou,average all non-legacy,thunder,40,14,15,14,8,10,TRUE,TRUE
+machamp,counter,close combat,raikou,average all non-legacy,thunder,39,15,15,13,8,10,TRUE,TRUE
+dragonite,steel wing,dragon claw,raikou,average all non-legacy,thunder,27,15,15,14,8,10,TRUE,TRUE
+vaporeon,water gun,hydro pump,raikou,average all non-legacy,thunder,31,15,5,13,8,10,TRUE,TRUE
+snorlax,lick,body slam,raikou,average all non-legacy,thunder,29,15,4,2,8,10,TRUE,TRUE
+rhydon,mud slap,earthquake,raikou,average all non-legacy,thunder,29,14,11,2,8,10,TRUE,TRUE
+gyarados,bite,twister,raikou,average all non-legacy,thunder,28,14,14,15,8,10,TRUE,TRUE
+donphan,counter,earthquake,raikou,average all non-legacy,thunder,30,15,15,15,8,10,TRUE,TRUE
+snorlax,zen headbutt,body slam,raikou,average all non-legacy,thunder,28,15,2,7,8,10,TRUE,TRUE
+espeon,confusion,futuresight,raikou,average all non-legacy,thunder,30,13,14,15,8,10,TRUE,TRUE
+golem,rock throw,stone edge,raikou,average all non-legacy,thunder,31,15,14,15,8,10,TRUE,TRUE
+golem,rock throw,stone edge,raikou,average all non-legacy,thunder,31.5,14,14,11,8,10,TRUE,TRUE
+espeon,confusion,futuresight,raikou,average all non-legacy,thunder,30,14,9,13,8,10,TRUE,TRUE
+flareon,fire spin,overheat,raikou,average all non-legacy,thunder,30.5,15,12,15,8,10,TRUE,TRUE
+snorlax,lick,body slam,raikou,average all non-legacy,thunder,27,15,3,10,8,10,TRUE,TRUE
+exeggutor,zen headbutt,psychic,raikou,average all non-legacy,thunder,32,14,10,6,8,10,TRUE,TRUE
+snorlax,lick,hyper beam,raikou,average all non-legacy,thunder,26.5,10,12,12,8,10,TRUE,TRUE
+rhydon,mud slap,earthquake,raikou,average all non-legacy,thunder,26,13,15,13,8,10,TRUE,TRUE
+machamp,counter,cross chop,raikou,average all non-legacy,thunder,29,13,7,15,8,10,TRUE,TRUE
+jolteon,thunder shock,thunder,raikou,average all non-legacy,thunder,30,15,11,15,8,10,TRUE,TRUE
+flareon,fire spin,fire blast,raikou,average all non-legacy,thunder,30,1,15,10,8,10,TRUE,TRUE
+venusaur,razor leaf,solar beam,raikou,average all non-legacy,thunder,33,15,15,12,8,10,TRUE,TRUE
+gyarados,bite,hydro pump,raikou,average all non-legacy,thunder,24.5,15,15,13,8,10,TRUE,TRUE
+vaporeon,water gun,aqua tail,raikou,average all non-legacy,thunder,26.5,15,5,0,8,10,TRUE,TRUE
+omastar,water gun,rock slide,raikou,average all non-legacy,thunder,30,15,13,10,8,10,TRUE,TRUE
+pinsir,all,all,raikou,average all non-legacy,thunder,30,14,9,5,8,10,TRUE,TRUE
+charizard,wing attack,fire blast,raikou,average all non-legacy,thunder,34.5,2,5,10,8,10,TRUE,TRUE
+flareon,ember,fire blast,raikou,average all non-legacy,thunder,27,15,14,13,8,10,TRUE,TRUE
+golem,mud shot,all,raikou,average all non-legacy,thunder,28.5,10,4,5,8,10,TRUE,TRUE
+lapras,frost breath,blizzard,raikou,average all non-legacy,thunder,30,14,10,14,8,10,TRUE,TRUE
+slowbro,water gun,water pulse,raikou,average all non-legacy,thunder,31.5,14,12,15,8,10,TRUE,TRUE
+arcanine,snarl,wild charge,raikou,average all non-legacy,thunder,29,0,15,1,8,10,TRUE,TRUE
+exeggutor,zen headbutt,all,raikou,average all non-legacy,thunder,26.5,13,15,2,8,10,TRUE,TRUE
+jynx,pound,avalanche,raikou,average all non-legacy,thunder,30,14,4,15,8,10,TRUE,TRUE
+tyranitar,bite,stone edge,raikou,average all non-legacy,thunder,20,14,14,14,8,10,TRUE,TRUE
+lugia,dragon tail,sky attack,raikou,average all non-legacy,thunder,20,15,13,14,8,10,TRUE,TRUE
+lapras,frost breath,ice beam,raikou,average all non-legacy,thunder,29,8,7,15,8,10,TRUE,TRUE
+gengar,sucker punch,sludge wave,raikou,average all non-legacy,thunder,29,9,4,6,8,10,TRUE,TRUE
+houndoom,snarl,foul play,raikou,average all non-legacy,thunder,30,6,5,5,8,10,TRUE,TRUE
