@@ -1,0 +1,3 @@
+atkr name or pokedex number,atkr fmove,atkr cmove,raid boss,boss fmove,boss cmove,atkr lvl,atkr atkIV,atkr defIV,atkr staIV,nOtherPlayers,nRepeats,dodgeCmovesIfFree?,randomness
+golem,all,all,jolteon,thunder shock,thunder,40,15,15,15,0,100,TRUE,TRUE
+golem,mud slap,earthquake,jolteon,thunder shock,thunder,40,15,15,15,0,100,TRUE,TRUE

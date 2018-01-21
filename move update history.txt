@@ -1,0 +1,4 @@
+move update history
+1. vanilla
+2. v0.33 changed diglet mud shot->mud slap and more
+3. v?? added gen2 and changed moves, for example dragonite lost dpulse, gained outrage. This can be accounted for by the newest version. (somewhere in between the powers were changed too but not relevant for using legacy stuff)

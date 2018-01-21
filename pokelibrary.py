@@ -6,7 +6,8 @@ except NameError: pass
 import os
 
 # this should be the most current GM file
-GMFileName_Current = "GAME_MASTER 2017.9.6.0529.json"
+# GMFileName_Current = "GAME_MASTER 2017.9.6.0529.json"
+GMFileName_Current = "GAME_MASTER 2017.01.17.json"
 
 pathOfPokeLib = os.path.realpath(__file__)
 
@@ -225,7 +226,7 @@ def importGM(path=dirOfPokeLib + GMFileName_Current):
                 movename.replace(","," ")
                 row += [movename, 'cinematic']
             #splash is missing a power value but calculated as 0
-            if "SPLASH" in tid or "TRANSFORM" in tid: row += [0]
+            if "SPLASH" in tid or "TRANSFORM" in tid or "YAWN" in tid: row += [0]
             else: 
                 try:
                     row += [data["itemTemplates"][n]['moveSettings']['power']]
@@ -279,18 +280,11 @@ def importGM(path=dirOfPokeLib + GMFileName_Current):
                 row += [str(data['itemTemplates'][n]['pokemonSettings']['type2'][13:]).lower()]
             except KeyError:
                 row += ['none']
-
-            if "MUK" in tid:
-                row += [[   
-                    int(data['itemTemplates'][n]['pokemonSettings']['stats']['baseAttack']),
-                    int(data['itemTemplates'][n]['pokemonSettings']['stats']['baseDefense']),
-                    5600]]
-            else:
-                row += [[
-                    int(data['itemTemplates'][n]['pokemonSettings']['stats']['baseAttack']),
-                    int(data['itemTemplates'][n]['pokemonSettings']['stats']['baseDefense']),
-                    int(data['itemTemplates'][n]['pokemonSettings']['stats']['baseStamina'])
-                    ]]
+            row += [[
+                int(data['itemTemplates'][n]['pokemonSettings']['stats']['baseAttack']),
+                int(data['itemTemplates'][n]['pokemonSettings']['stats']['baseDefense']),
+                int(data['itemTemplates'][n]['pokemonSettings']['stats']['baseStamina'])
+                ]]
             row += [[ getFMoveObject(str(x[:-5].replace("_"," ")).lower(), fmovedata) for x in 
                 data['itemTemplates'][n]['pokemonSettings']['quickMoves']]]
             row += [[ getCMoveObject(str(x.replace("_"," ")).lower(), cmovedata) for x in 
@@ -371,7 +365,8 @@ def importAllGM(GMFilesInChronologicalOrder = [
         # import the legacy GM file
         fmovedata2, cmovedata2, speciesdata2, CPMultiplier2, typeadvantages2 = importGM(GMFile)
 
-        # add the legacy moves to fmovedata, cmovedata
+        # add the legacy moves to fmovedata, cmovedata.
+        # these are moves which do not exist in the most recent GM file
         fmovenames2 = fmovedata2.keys()
         cmovenames2 = cmovedata2.keys()
         fmovenameslegacy = []
@@ -390,12 +385,20 @@ def importAllGM(GMFilesInChronologicalOrder = [
             for fname2 in [fm2.name for fm2 in pk2.fmoves]:
                 if not (fname2 in [fm.name for fm in pk.fmoves]):
                     legacyfm = [x for x in pk2.fmoves if x.name == fname2][0]
+                    if not (legacyfm.name in fmovenameslegacy):
+                        # then the move still exists, but for this pk it is legacy.
+                        # add the legacy move, but from the updated file.
+                        legacyfm = fmovedata[fname2]
                     legacyfm.legacyBool = True
                     speciesdata[dex].fmoves += [legacyfm]
                     speciesdata[dex].legacyfmnames += [fname2]
             for cname2 in [cm2.name for cm2 in pk2.cmoves]:
                 if not (cname2 in [cm.name for cm in pk.cmoves]):
                     legacycm = [x for x in pk2.cmoves if x.name == cname2][0]
+                    if not (legacycm.name in cmovenameslegacy):
+                        # then the move still exists, but for this pk it is legacy.
+                        # add the legacy move, but from the updated file.
+                        legacycm = cmovedata[cname2]
                     legacycm.legacyBool = True
                     speciesdata[dex].cmoves += [legacycm]
                     speciesdata[dex].legacycmnames += [cname2]

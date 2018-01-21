@@ -68,7 +68,7 @@ bsl.trollMode = False
 bsl.showlog = False
 bsl.gymmode = True
 
-input_csv = "my_pokemon.csv"
+input_csv = "pokemoninput_raid.csv"
 output_csv = "battlesoutput.csv"
 
 input_col_headers = [
@@ -118,7 +118,7 @@ print("Importing game master file. It should be in this folder, named \n'%s'..."
     GMfilepath)
 fmovedata, cmovedata, speciesdata, CPMultiplier, typeadvantages = \
     plib.importAllGM()
-print("This program needs input via a csv file named '%s'. " % input_csv
+print("This program needs input via a csv file named 'pokemoninput_raid.csv'. "
     + "if you want to change the input, open it in excel. "
     + "The csv file must be in the same folder as this script.")
 data = cv.importcsv(input_csv,
@@ -425,7 +425,6 @@ for n in range(1,len(data)):
     outputdata += outputdata0
 print("\ndone simulating.\n")
 if select_optimal_team:
-    print("Selecting the optimal team of attackers for this matchup...")
     # sort, increasing, by risk-adjusted DPS
     outputdata.sort(key = lambda x: x[DPS_RAi])
 

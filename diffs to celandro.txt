@@ -1,0 +1,7 @@
+-starting time is diff, I think mine was the most accurate since we timed it framewise. The relative starting times of attacker to defender only differ by 100ms between our sims though.
+-he makes pokemon (maybe only attackers?) charge their full 0.5s before beginning a cmove. I have a thing which subtracts off different amounts based also on some ~realistic player parameters like spam speed and timing.
+-his defenders do not gain energy from fmoves. (lol)
+
+his sim helped me find that I forgot to add the new STAB multiplier. That is fixed now.
+
+I tested this on his default battle... was it machamp vs tyranitar? but with lvl37 100%IV I think.
