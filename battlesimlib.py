@@ -1,5 +1,6 @@
 from __future__ import print_function, division
 import math
+import bisect
 import sys
 import time
 try: input = raw_input
@@ -38,6 +39,8 @@ else: showlog = True
 # ALL TIMES ARE IN MS AS INTS
 ATKR_MAX_ENERGY = plib.ATKR_MAX_ENERGY # max energy for attacker
 DFDR_MAX_ENERGY = plib.DFDR_MAX_ENERGY # max energy for defender
+WEATHER_LIST = plib.WEATHER_LIST
+WEATHER_BOOSTED_TYPES = plib.WEATHER_BOOSTED_TYPES
 
 # These times are adjusted to subtract some lag time at the beginning of raid
 TIMELIMIT_GYM_MS = plib.TIMELIMIT_GYM_MS
@@ -64,8 +67,9 @@ CMOVE_OVERKILL_CHOICE_PERCENT_THRESHHOLD = 0.30 # if this=0.30, then the attacke
                                      # use fmove spam rather than a cmove if 30% or more of 
                                      # the cmove's damage would be overkill.
                                      # currently NOT IMPLEMENTED.
-CMOVE_CHARGETIME_MS = 500   # how long it takes between tap and when the cmove is announced.
+CMOVE_CHARGETIME_MS = 500   # how long it takes between tap and when the cmove is announced. Not needed after battle UI updated
 STAB_MULTIPLIER = 1.2         # Same Type Attack Bonus damage multiplier
+WAB_MULTIPLIER = 1.2        # Weather boosted Attack Bonus damage multiplier
 ATKR_SUBSTITUTE_DELAY_MS_IDEAL = 900  # when switching out atkr or after death, how long until atkrFree?
                         # found by a combination of frame-counting and game master guesses.
 ATKR_SUBSTITUTE_LAG = 577 # how much lag follows the sub? found by frame-counting.
@@ -82,17 +86,21 @@ lugia_base_DEF_adj = 323 + plib.raidboss_IVs[1]
 lugia_timelimit_s = TIMELIMIT_LEGENDARYRAID_MS//1000
 vs_lugia_DPS_per_other_player = (lugia_HP/lugia_timelimit_s)/nToBarelyBeatLugia
 
-def damage_multiplier(pkmn_usedAtk, pkmn_hurt, atk, typeadvantages):
+def damage_multiplier(pkmn_usedAtk, pkmn_hurt, atk, typeadvantages, weather):
     STAB = 1
     if atk.dtype in [pkmn_usedAtk.type1, pkmn_usedAtk.type2]:
         STAB = STAB_MULTIPLIER
+        
+    WAB = 1
+    if atk.dtype in WEATHER_BOOSTED_TYPES[weather]:
+        WAB = WAB_MULTIPLIER
 
     typadv1 = typeadvantages[atk.dtype][pkmn_hurt.type1]
     typadv2 = 1 if pkmn_hurt.type2=="none" else typeadvantages[atk.dtype][pkmn_hurt.type2]
-    return STAB * typadv1 * typadv2
+    return STAB * WAB * typadv1 * typadv2
 
-def damage(pkmn_usedAtk, pkmn_hurt, atk, typeadvantages):
-    mult = damage_multiplier(pkmn_usedAtk, pkmn_hurt, atk, typeadvantages)
+def damage(pkmn_usedAtk, pkmn_hurt, atk, typeadvantages, weather = 'EXTREME'):
+    mult = damage_multiplier(pkmn_usedAtk, pkmn_hurt, atk, typeadvantages, weather)
     # calculate damage.
     dmg = math.ceil(0.5*pkmn_usedAtk.ATK*atk.power*mult/pkmn_hurt.DEF)
     return dmg
@@ -150,31 +158,33 @@ class event:
         self.pkmn_usedAtk = pkmn_usedAtk
         self.eventtype = eventtype
 
+    def __lt__(self, other): return self.t < other.t
+    def __le__(self, other): return self.t <= other.t
+    def __gt__(self, other): return self.t > other.t
+    def __ge__(self, other): return self.t >= other.t
+    def __eq__(self, other): return self.t == other.t
+
+
+
 class timeline:
     def __init__(self):
         self.lst = []
 
     def add(self, event):
         # add the event at the proper (sorted) spot.
-        if len(self.lst)!=0:
-            for n in range(len(self.lst)):
-                # if event.t < self.lst[n].t:
-                #     continue                 #not needed, happens anyway
-                if event.t == self.lst[n].t:
-                    self.lst = self.lst[:n] + [event] + self.lst[n:]
-                    return
-                if event.t < self.lst[n].t:
-                    self.lst = self.lst[:n] + [event] + self.lst[n:]
-                    return
-        # at this point, the event would have to be last in the list.
-        self.lst += [event]
-        return
+        bisect.insort_left(self.lst, event)
+
+    def pop(self):
+        # remove the first (earliest) event and remove it from the queue
+        return self.lst.pop(0)
+        
     def print(self):
         print("==Timeline== ", end="")
         for event in self.lst:
             print(str(event.t) + ":" + event.name, end=", ")
         print()
         return
+
 
 class pdiff:
     def __init__(self):
@@ -188,8 +198,9 @@ class pdiff:
         print("HPdelta: %d\nenergydelta: %d" % 
             (self.HPdelta, self.energydelta))
 
+
 def player_AI_choose(atkr, dfdr, tline, t, glog, typeadvantages, timelimit_ms, 
-    dodge_success_probability, dodgeCMovesIfFree):
+    dodge_success_probability, dodgeCMovesIfFree, weather = 'EXTREME'):
     # for now, atkr will always be the player's pokemon.
 
     # this function chooses which move to use depending on the situation.
@@ -230,9 +241,9 @@ def player_AI_choose(atkr, dfdr, tline, t, glog, typeadvantages, timelimit_ms,
         ##MAYBE TO ADD LATER: ELIF cmove would be very overkill and I have at least 35% HP remaining, use fmove
 
     atkrdiff, dfdrdiff = pdiff(), pdiff()
-    atkr_fDmg = damage(atkr, dfdr, atkr.fmove, typeadvantages)
-    atkr_cDmg = damage(atkr, dfdr, atkr.cmove, typeadvantages)
-    dfdr_cDmg = damage(dfdr, atkr, dfdr.cmove, typeadvantages)
+    atkr_fDmg = damage(atkr, dfdr, atkr.fmove, typeadvantages, weather)
+    atkr_cDmg = damage(atkr, dfdr, atkr.cmove, typeadvantages, weather)
+    dfdr_cDmg = damage(dfdr, atkr, dfdr.cmove, typeadvantages, weather)
 
     if dodgeCMovesIfFree and (DODGE_FAINT_BUG and atkr.HP/atkr.maxHP > DODGE_FAINT_AVOID_PERCENT):
         atkrHurt_cmove_events = [x for x in tline.lst if (x.name=='atkrHurt' and x.dmg==dfdr_cDmg)]
@@ -462,7 +473,7 @@ def player_AI_choose(atkr, dfdr, tline, t, glog, typeadvantages, timelimit_ms,
     return atkrdiff, dfdrdiff, tline, glog
 
 def gymdfdr_AI_choose(atkr, dfdr, tline, t, current_move_duration, current_move_name, 
-    glog, typeadvantages, timelimit_ms, opportunityNum, randomness):
+    glog, typeadvantages, timelimit_ms, opportunityNum, randomness, weather = 'EXTREME'):
     # in this function, atkr is always the attacker (player).
     # this is called when it is the defender's turn to start an atk,
     # it chooses what ability to use NEXT (so not at time=t, but at time=t+duration+delay)
@@ -503,7 +514,7 @@ def gymdfdr_AI_choose(atkr, dfdr, tline, t, current_move_duration, current_move_
 
         # deal damage to player:
         t_player_hurt = t_next_move + dfdr.cmove.dws
-        dmg = damage(dfdr, atkr, dfdr.cmove, typeadvantages)
+        dmg = damage(dfdr, atkr, dfdr.cmove, typeadvantages, weather)
         tline.add(event("atkrHurt", t_player_hurt, dmg=dmg, move_hurt_by = dfdr.cmove))
 
         # set up next free time:
@@ -522,7 +533,7 @@ def gymdfdr_AI_choose(atkr, dfdr, tline, t, current_move_duration, current_move_
 
         # add the fmove's damage to the attacker
         t_player_hurt = t_next_move + dfdr.fmove.dws
-        dmg = damage(dfdr, atkr, dfdr.fmove, typeadvantages)
+        dmg = damage(dfdr, atkr, dfdr.fmove, typeadvantages, weather)
         tline.add(event("atkrHurt", t_player_hurt, dmg = dmg, move_hurt_by = dfdr.fmove))
 
         # set up next free time:
@@ -676,19 +687,19 @@ class graphicallog:
 
 def update_logs(eventtype, t, atkr, dfdr, glog, timelimit_ms,
     pkmn_usedAtk=None, pkmn_hurt=None, damage=None, hurtEnergyGain=None, move_hurt_by=None):
+    msg2 = ""
+    
     if eventtype == "use_fmove":
         # takes in pkmn_usedAtk
         msg = ("%.2f: %s used %s!" % (
             (timelimit_ms - t)/1000, pkmn_usedAtk.name, pkmn_usedAtk.fmove.name))
         msg = "%-45s +  %d HP / +%3d E" % (msg, 0, pkmn_usedAtk.fmove.energygain)
-        msg2=""
         
     elif eventtype == "use_cmove":
         # takes in pkmn_usedAtk
         msg = ("%.2f: %s used %s!" % (
             (timelimit_ms - t)/1000, pkmn_usedAtk.name, pkmn_usedAtk.cmove.name))
         msg = "%-45s +  %d HP / %3d E" % (msg, 0, -pkmn_usedAtk.cmove.energycost)
-        msg2=""
 
     elif eventtype == "hurt":
         # takes in pkmn_usedAtk, pkmn_hurt, hurtEnergyGain, move_hurt_by
@@ -697,10 +708,10 @@ def update_logs(eventtype, t, atkr, dfdr, glog, timelimit_ms,
 
         msg = "%-45s -%3d HP / +%3d E" % (msg, damage, hurtEnergyGain)
         timelen = len("%.2f" % ((timelimit_ms - t)/1000)) + 2
-        if move_hurt_by.movetype == "fmove":
+        if move_hurt_by is plib.fmove:
             msg2 = "\n" + " "*timelen + "%s gained %d energy." % (
                 pkmn_usedAtk.name, move_hurt_by.energygain)
-        elif move_hurt_by.movetype == "cmove":
+        elif move_hurt_by is plib.cmove:
             msg2 = "\n" + " "*timelen + "%s used up %d energy." % (
                 pkmn_usedAtk.name, move_hurt_by.energycost)
 
@@ -708,14 +719,12 @@ def update_logs(eventtype, t, atkr, dfdr, glog, timelimit_ms,
         # takes in pkmn_usedAtk, pkmn_hurt
         msg = "%.2f: %s dodged %s!" % (
             (timelimit_ms - t)/1000, pkmn_hurt.name, pkmn_usedAtk.cmove.name)
-        msg2 = ""
 
     elif eventtype == "background_dmg":
         # takes in pkmn_hurt
         msg = "%.2f: %s took background dmg!" % (
             (timelimit_ms - t)/1000, pkmn_hurt.name)
         msg = "%-45s -%3d HP / +%3d E" % (msg, damage, hurtEnergyGain)
-        msg2=""
 
     atkrHP, atkrEnergy = str(int(atkr.HP)), str(int(atkr.energy))
     dfdrHP, dfdrEnergy = str(int(dfdr.HP)), str(int(dfdr.energy))
@@ -775,8 +784,10 @@ def otherplayers_DPS_profile(t):
 
     else: return 0
 
+
+
 def raid_1v1_battle(atkr, dfdr, speciesdata, typeadvantages, battle_type,
-    new_battle_bool, dodgeCMovesIfFree, randomness, nOtherPlayers, tline=timeline(), starting_t_ms=-1):
+    new_battle_bool, dodgeCMovesIfFree, randomness, nOtherPlayers, weather, tline=timeline(), starting_t_ms=-1):
     # This function faces one pkmn against one pkmn.
     # this function can start a new battle or continue an existing one after a pokemon died,
     # depending on whether new_battle_bool = True. 
@@ -789,7 +800,7 @@ def raid_1v1_battle(atkr, dfdr, speciesdata, typeadvantages, battle_type,
     #       -ALREADY WITH THE NEXT POKEMON's NEXT EVENT INCLUDED!!
     # time_remaining_ms defaults to -1 because it will always be set in a new_battle_bool, based on battle_type.
 
-    if new_battle_bool == True:
+    if new_battle_bool:
         t = 0
         # add the starting times of atkr and dfdr.
         tline.add(event("atkrFree", 0))
@@ -798,18 +809,20 @@ def raid_1v1_battle(atkr, dfdr, speciesdata, typeadvantages, battle_type,
         tline.add(event("dfdrEnergyDelta", 1000-1, energy_delta = dfdr.fmove.energygain))
         tline.add(event("dfdrFree",        1000, current_move_duration = dfdr.fmove.duration,
             current_move_name = dfdr.fmove.name))
-        dfdr_fDmg = damage(dfdr,atkr,dfdr.fmove,typeadvantages)
+        dfdr_fDmg = damage(dfdr,atkr,dfdr.fmove,typeadvantages,weather)
         tline.add(event("atkrHurt",        1000 + dfdr.fmove.dws, 
             dmg = dfdr_fDmg, move_hurt_by = dfdr.fmove))
         tline.add(event("dfdrEnergyDelta", 2000-1, energy_delta = dfdr.fmove.energygain))
         tline.add(event("atkrHurt",        2000 + dfdr.fmove.dws, 
             dmg = dfdr_fDmg, move_hurt_by = dfdr.fmove))
-
-    if new_battle_bool == False:
+        dfdr.nonbackground_damage_taken = 0
+    else:
         t = starting_t_ms
         if len(tline.lst)==0 or starting_t_ms==-1:
             raise Exception("\nFor battles which start in the middle, "
                 + "you must input starting_t_ms and timeline.\n")
+
+        
     if battle_type == "raid":
         timelimit_ms = ( TIMELIMIT_LEGENDARYRAID_MS if plib.raidboss_dict[dfdr.name]["lvl"] == 5
             else TIMELIMIT_NORMALRAID_MS )
@@ -846,13 +859,10 @@ def raid_1v1_battle(atkr, dfdr, speciesdata, typeadvantages, battle_type,
     # do all the events in order.
     while (atkr.HP > 0 and dfdr.HP > 0 and t < timelimit_ms) or t == tline.lst[0].t:
 
-        # handle first event on tline
+        # handle first event on tline and remove current event from the timeline so it only gets handled once.
         t_prev = t
-        this_event = tline.lst[0]
+        this_event = tline.pop()
         t = this_event.t
-
-        # remove current event from the timeline so it only gets handled once.
-        tline.lst = tline.lst[1:]
 
         # case 1: a pokemon is free to decide on a move
         if "Free" in this_event.name:
@@ -976,8 +986,10 @@ def raid_1v1_battle(atkr, dfdr, speciesdata, typeadvantages, battle_type,
         sys.exit(1)
     return winner, atkr, dfdr, t, tline
 
+
+
 def raid_singleteam_battle(atkrs, dfdr, speciesdata, typeadvantages, nOtherPlayers,
-    dodgeCMovesIfFree, randomness):
+    dodgeCMovesIfFree, randomness, weather):
     # battle a raid with just one person's team.
     battle_type = "raid"
     if "ho" in dfdr.name and "oh" in dfdr.name:
@@ -1039,13 +1051,13 @@ def raid_singleteam_battle(atkrs, dfdr, speciesdata, typeadvantages, nOtherPlaye
                 dmg0 = atkrHurt_evnt.dmg
                 if atkrHurt_evnt.move_hurt_by.name == dfdr.fmove.name:
                     dmg1 = math.ceil( dmg0
-                        * (damage_multiplier(dfdr, atkrs[i_atkr], dfdr.fmove, typeadvantages)
-                        / damage_multiplier(dfdr, atkrs[i_atkr-1], dfdr.fmove, typeadvantages)) 
+                        * (damage_multiplier(dfdr, atkrs[i_atkr], dfdr.fmove, typeadvantages, weather)
+                        / damage_multiplier(dfdr, atkrs[i_atkr-1], dfdr.fmove, typeadvantages, weather)) 
                         * (atkrs[i_atkr-1].DEF/atkrs[i_atkr].DEF))
                 if atkrHurt_evnt.move_hurt_by.name == dfdr.cmove.name:
                     dmg1 = math.ceil( dmg0
-                        * (damage_multiplier(dfdr, atkrs[i_atkr], dfdr.cmove, typeadvantages)
-                        / damage_multiplier(dfdr, atkrs[i_atkr-1], dfdr.cmove, typeadvantages)) 
+                        * (damage_multiplier(dfdr, atkrs[i_atkr], dfdr.cmove, typeadvantages, weather)
+                        / damage_multiplier(dfdr, atkrs[i_atkr-1], dfdr.cmove, typeadvantages, weather)) 
                         * (atkrs[i_atkr-1].DEF/atkrs[i_atkr].DEF))
                 tline.lst[atkrHurt_index].dmg = dmg1        
             continue
@@ -1154,6 +1166,13 @@ def manualuse():
         randomness = False
         print("Okay, randomness will be replaced by a mean value.")
 
+    ans11 = input("*UPDATE* How's the weather? ")
+    while ans11.upper() not in WEATHER_LIST:
+        print("That is an invalid weather. Below are the available weather:")
+        for w in WEATHER_LIST: print(w)
+        ans11 = input("\nNow choose again:")
+    weather = ans11.upper()
+
     # assign atkr and dfdr
     atkr = plib.pokemon(atkr_species, atkrIVs, plib.CPM(atkrlvl, CPMultiplier), 
         atkr_fmove, atkr_cmove, poketype="player")
@@ -1164,28 +1183,28 @@ def manualuse():
         dfdr_fmove, dfdr_cmove, poketype="gym_defender")
 
     print("\nWe're finally done. Time to start the battle...")
-    atkr_fDmg = damage(atkr, dfdr, atkr.fmove, typeadvantages)
-    atkr_cDmg = damage(atkr, dfdr, atkr.cmove, typeadvantages)
-    dfdr_fDmg = damage(dfdr, atkr, dfdr.fmove, typeadvantages)
-    dfdr_cDmg = damage(dfdr, atkr, dfdr.cmove, typeadvantages)
+    atkr_fDmg = damage(atkr, dfdr, atkr.fmove, typeadvantages, weather)
+    atkr_cDmg = damage(atkr, dfdr, atkr.cmove, typeadvantages, weather)
+    dfdr_fDmg = damage(dfdr, atkr, dfdr.fmove, typeadvantages, weather)
+    dfdr_cDmg = damage(dfdr, atkr, dfdr.cmove, typeadvantages, weather)
     print("For the record, the attacks are:")
     print("       pkmn                   move    dws   duration  energydel  damage STAB*typadv")
     print("%11s fmove:%16s   %4d       %4d       %4d    %4d       %5g" % (
         atkr.name, atkr.fmove.name, atkr.fmove.dws, 
         atkr.fmove.duration, atkr.fmove.energygain, atkr_fDmg, 
-        damage_multiplier(atkr, dfdr, atkr.fmove, typeadvantages)))
+        damage_multiplier(atkr, dfdr, atkr.fmove, typeadvantages, weather)))
     print("%11s cmove:%16s   %4d       %4d       %4d    %4d       %5g" % (
         atkr.name, atkr.cmove.name, atkr.cmove.dws, 
         atkr.cmove.duration, -atkr.cmove.energycost, atkr_cDmg, 
-        damage_multiplier(atkr, dfdr, atkr.cmove, typeadvantages)))
+        damage_multiplier(atkr, dfdr, atkr.cmove, typeadvantages, weather)))
     print("%11s fmove:%16s   %4d       %4d       %4d    %4d       %5g" % (
         dfdr.name, dfdr.fmove.name, dfdr.fmove.dws, 
         dfdr.fmove.duration, dfdr.fmove.energygain, dfdr_fDmg, 
-        damage_multiplier(dfdr, atkr, dfdr.fmove, typeadvantages)))
+        damage_multiplier(dfdr, atkr, dfdr.fmove, typeadvantages, weather)))
     print("%11s cmove:%16s   %4d       %4d       %4d    %4d       %5g" % (
         dfdr.name, dfdr.cmove.name, dfdr.cmove.dws, 
         dfdr.cmove.duration, -dfdr.cmove.energycost, dfdr_cDmg, 
-        damage_multiplier(dfdr, atkr, dfdr.cmove, typeadvantages)))
+        damage_multiplier(dfdr, atkr, dfdr.cmove, typeadvantages, weather)))
     print()
     if showlog:
         p1name_len = len(atkr.name)
@@ -1197,7 +1216,7 @@ def manualuse():
         new_battle_bool = True
         winner, atkr_postbattle, dfdr_postbattle, length_ms, tline = \
             raid_1v1_battle(atkr, dfdr, speciesdata, typeadvantages, battle_type,
-                new_battle_bool, dodgeCMovesIfFree, randomness, tline, starting_t_ms)
+                new_battle_bool, dodgeCMovesIfFree, randomness, 0, weather, timeline(), starting_t_ms)
         if atkr_postbattle.HP <=0 and dfdr_postbattle.HP<=0:
             print("It was a tie! Who knows what happens now.")
         if atkr_postbattle.HP <=0:
@@ -1210,7 +1229,7 @@ def manualuse():
         atkr_fmove, atkr_cmove, poketype="player") for n in range(6)]
         raidwinner, atkrs, dfdr, length_ms, tline = \
             raid_singleteam_battle(atkrs, dfdr, speciesdata, typeadvantages, nOtherPlayers,
-                dodgeCMovesIfFree, randomness)
+                dodgeCMovesIfFree, randomness, weather)
         if dfdr.HP<=0:
             print("The attacking team won!")
         else:
@@ -1236,4 +1255,4 @@ def manualuse():
     # # print("DPS: %.2f    EPS gain: %.2f" % (
     # #     (atkr_postbattle.maxHP-atkr_postbattle.HP)/lengthsecs, dfdr_postbattle.total_energy_gained/lengthsecs))
     print("time: %.2f seconds" % lengthsecs)
-    import ips; ips.ips()
+    # import ips; ips.ips()

@@ -11,14 +11,10 @@ GMFileName_Current = "GAME_MASTER 2017.01.17.json"
 
 pathOfPokeLib = os.path.realpath(__file__)
 
-for n in range(1,1000):
-    try:
-        if pathOfPokeLib[-n]=='\\':
-            dirOfPokeLib = pathOfPokeLib[:-n+1]
-            break
-    except:
-        dirOfPokeLib=''
-        break
+try:
+    dirOfPokeLib = os.path.split(pathOfPokeLib)[0]
+except:
+    dirOfPokeLib=''
 
 
 # I need: 
@@ -41,6 +37,17 @@ TIMELIMIT_LEGENDARYRAID_MS_IDEAL = 300000 # timer for legendary raid
 TIMELIMIT_GYM_MS = TIMELIMIT_GYM_MS_IDEAL - ARENA_ENTRY_LAG_MS 
 TIMELIMIT_NORMALRAID_MS = TIMELIMIT_NORMALRAID_MS_IDEAL - ARENA_ENTRY_LAG_MS
 TIMELIMIT_LEGENDARYRAID_MS = TIMELIMIT_LEGENDARYRAID_MS_IDEAL - ARENA_ENTRY_LAG_MS
+
+
+WEATHER_BOOSTED_TYPES = {'SUNNY_CLEAR':["grass","ground","fire"],
+                         'RAIN':["water","electric","bug"],
+                         'PARTLY_CLOUDY':["normal","rock"],
+                         'CLOUDY':["fairy","fight","poison"],
+                         'WINDY':["dragon","flying","psychic"],
+                         'SNOW':["ice","steel"],
+                         'FOG':["dark","ghost"],
+                         'EXTREME':[]}
+WEATHER_LIST = list(WEATHER_BOOSTED_TYPES.keys())
 
 raids_list_lvl1 = ["croconaw", "quilava", "bayleef", "magikarp"]
 raids_list_lvl2 = ["exeggutor", "muk", "magmar", "electabuzz", "weezing"]
@@ -178,17 +185,17 @@ def invalidInputError(invalidstr):
 
 def getPokedexNumber(nameOrNumber, speciesdata):
     try:
-        out = int(nameOrNumber)
-        return out
+        return int(nameOrNumber)
     except ValueError:
-        try: 
-            out = [x.dex for x in speciesdata[1:] if x.name==nameOrNumber][0]
-        except IndexError: 
-            invalidInputError(nameOrNumber)
-    return out
+        for x in speciesdata[1:]:
+            if x.name == nameOrNumber:
+                return x.dex
+
+    invalidInputError(nameOrNumber)
+
 
 def getFMoveObject(name, fmovedata):
-    name = (((name.lower().replace('_',' '))).replace('-'," ")).replace(',',' ')
+    name = name.lower().replace('_',' ').replace('-',' ').replace(',',' ')
     try: fmove = fmovedata[name.lower()]
     except KeyError: invalidInputError(name)
     return fmove
@@ -198,7 +205,7 @@ def getCMoveObject(name, cmovedata):
     except KeyError: invalidInputError(name)
     return cmove
 
-def importGM(path=dirOfPokeLib + GMFileName_Current):
+def importGM(path=os.path.join(dirOfPokeLib, GMFileName_Current)):
     # import the gamemaster data
     with open(path) as gmfile:
         data = json.load(gmfile)
