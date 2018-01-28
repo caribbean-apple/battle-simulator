@@ -10,11 +10,13 @@ import os
 GMFileName_Current = "GAME_MASTER 2017.01.17.json"
 
 pathOfPokeLib = os.path.realpath(__file__)
-
 try:
     dirOfPokeLib = os.path.split(pathOfPokeLib)[0]
 except:
     dirOfPokeLib=''
+
+# The absolute path to the folder that contains all GM files
+dirOfGM = os.path.join(dirOfPokeLib, 'GAME_MASTER\\')
 
 
 # I need: 
@@ -205,8 +207,15 @@ def getCMoveObject(name, cmovedata):
     except KeyError: invalidInputError(name)
     return cmove
 
-def importGM(path=os.path.join(dirOfPokeLib, GMFileName_Current)):
+def importGM(path=os.path.join(dirOfGM, GMFileName_Current)):
+    '''
+    Returns fmovedata, cmovedata, speciesdata, CPMultiplier, typeadvantages
+    '''
+    
     # import the gamemaster data
+    
+    if not os.path.isfile(path):
+        path = os.path.join(dirOfGM, path)
     with open(path) as gmfile:
         data = json.load(gmfile)
 
@@ -362,6 +371,9 @@ def importAllGM(GMFilesInChronologicalOrder = [
     "GAME_MASTERv0.47.1 legacy move changes from v0.33, and CP changes.json", 
     GMFileName_Current
     ]):
+    '''
+    Returns fmovedata, cmovedata, speciesdata, CPMultiplier, typeadvantages
+    '''
 
     fmovedata, cmovedata, speciesdata, CPMultiplier, typeadvantages = \
         importGM(GMFilesInChronologicalOrder[-1])

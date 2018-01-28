@@ -6,7 +6,8 @@ import time
 try: input = raw_input
 except NameError: pass
 import random
-import pokelibrary as plib
+
+from pokelibrary import *   # to take out "" prefix of many variables for shorter code
 import csvimport as cv
 import winsound
 
@@ -36,55 +37,59 @@ else: showlog = True
                             # opportunity, and always wait exactly 2000ms
                             # between attacks
 
-# ALL TIMES ARE IN MS AS INTS
-ATKR_MAX_ENERGY = plib.ATKR_MAX_ENERGY # max energy for attacker
-DFDR_MAX_ENERGY = plib.DFDR_MAX_ENERGY # max energy for defender
-WEATHER_LIST = plib.WEATHER_LIST
-WEATHER_BOOSTED_TYPES = plib.WEATHER_BOOSTED_TYPES
+DODGEWINDOW_LENGTH_MS = 700         # how much time you have to dodge after yellow flash (tested)
 
-# These times are adjusted to subtract some lag time at the beginning of raid
-TIMELIMIT_GYM_MS = plib.TIMELIMIT_GYM_MS
-TIMELIMIT_NORMALRAID_MS = plib.TIMELIMIT_NORMALRAID_MS
-TIMELIMIT_LEGENDARYRAID_MS = plib.TIMELIMIT_LEGENDARYRAID_MS
+DODGE_COOLDOWN_MS = 500             # how long after you dodge can you attack again
 
-DODGEWINDOW_LENGTH_MS = 700 # how much time you have to dodge after yellow flash (tested)
-DODGE_COOLDOWN_MS = 500 # how long after you dodge can you attack again
-dodgeDamageReductionPercent = 0.75 # dodged atks do 25% dmg. This variable is from GAME_MASTER.
-DODGE_REACTIONTIME_MS = 50 # this is how long in ms that a person takes to react
-                        # to the yellow flash. 
-                        # they will only dodge, say, 50ms
-                        # after the beginning of the yellow flash.
-                        # note that it's not a reaction, because if you are used to
-                        # the enemy move's timing then you can just time it.
-CMOVE_REACTIONTIME_MS = 100 # how long it takes you to react after seeing "Snorlax 
-                          # used Hyper Beam!" or similar message.
-TAP_TIMING_MS = 100         # This will determine how much of your charge move you can charge during
-                        # the previous fast move. Smaller TAP_TIMING_MS means more charging.
-TAP_PERIOD_MS = 200         # This was my tap period, for a typical gym battle. It is a "tapping decently fast
-                        # but not as fast as possible" speed. TAP_PERIOD_MS/2 is then the typical time in between
-                        # successive taps, if there is no buffering.
+dodgeDamageReductionPercent = 0.75  # dodged atks do 25% dmg. This variable is from GAME_MASTER.
+
+DODGE_REACTIONTIME_MS = 50          # this is how long in ms that a person takes to react
+                                    # to the yellow flash. 
+                                    # they will only dodge, say, 50ms
+                                    # after the beginning of the yellow flash.
+                                    # note that it's not a reaction, because if you are used to
+                                    # the enemy move's timing then you can just time it.
+                                    
+CMOVE_REACTIONTIME_MS = 100         # how long it takes you to react after seeing "Snorlax 
+                                    # used Hyper Beam!" or similar message.
+                                    
+TAP_TIMING_MS = 100                 # This will determine how much of your charge move you can charge during
+                                    # the previous fast move. Smaller TAP_TIMING_MS means more charging.
+                                    
+TAP_PERIOD_MS = 200                 # This was my tap period, for a typical gym battle. It is a "tapping decently fast
+                                    # but not as fast as possible" speed. TAP_PERIOD_MS/2 is then the typical time in between
+                                    # successive taps, if there is no buffering.
+                                    
 CMOVE_OVERKILL_CHOICE_PERCENT_THRESHHOLD = 0.30 # if this=0.30, then the attacker will choose to
-                                     # use fmove spam rather than a cmove if 30% or more of 
-                                     # the cmove's damage would be overkill.
-                                     # currently NOT IMPLEMENTED.
-CMOVE_CHARGETIME_MS = 500   # how long it takes between tap and when the cmove is announced. Not needed after battle UI updated
-STAB_MULTIPLIER = 1.2         # Same Type Attack Bonus damage multiplier
-WAB_MULTIPLIER = 1.2        # Weather boosted Attack Bonus damage multiplier
-ATKR_SUBSTITUTE_DELAY_MS_IDEAL = 900  # when switching out atkr or after death, how long until atkrFree?
-                        # found by a combination of frame-counting and game master guesses.
-ATKR_SUBSTITUTE_LAG = 577 # how much lag follows the sub? found by frame-counting.
+                                                # use fmove spam rather than a cmove if 30% or more of 
+                                                # the cmove's damage would be overkill.
+                                                # currently NOT IMPLEMENTED.
+                                    
+CMOVE_CHARGETIME_MS = 500           # how long it takes between tap and when the cmove is announced. Not needed after battle UI updated
+
+STAB_MULTIPLIER = 1.2               # Same Type Attack Bonus damage multiplier
+
+WAB_MULTIPLIER = 1.2                # Weather boosted Attack Bonus damage multiplier
+
+ATKR_SUBSTITUTE_DELAY_MS_IDEAL = 900    # when switching out atkr or after death, how long until atkrFree?
+                                        # found by a combination of frame-counting and game master guesses.
+                                        
+ATKR_SUBSTITUTE_LAG = 577               # how much lag follows the sub? found by frame-counting.
 ATKR_SUBSTITUTE_DELAY_MS = ATKR_SUBSTITUTE_DELAY_MS_IDEAL + ATKR_SUBSTITUTE_LAG
 
-DODGE_FAINT_BUG = True  # is there still a bug in the game when you dodge a move that would kill you?
-DODGE_FAINT_AVOID_PERCENT = 0.5 # to avoid the bug, if BUG=True, I will not dodge if my HP<50%.
+DODGE_FAINT_BUG = True              # is there still a bug in the game when you dodge a move that would kill you?
+
+DODGE_FAINT_AVOID_PERCENT = 0.5     # to avoid the bug, if BUG=True, I will not dodge if my HP<50%.
 
 # subjective parameter used to determine how much damage other players do
 # although 11 is pretty accurate in my experience in NYC and in Munich
 nToBarelyBeatLugia = 11
-lugia_HP = plib.raidboss_HP[5]
-lugia_base_DEF_adj = 323 + plib.raidboss_IVs[1]
+lugia_HP = raidboss_HP[5]
+lugia_base_DEF_adj = 323 + raidboss_IVs[1]
 lugia_timelimit_s = TIMELIMIT_LEGENDARYRAID_MS//1000
 vs_lugia_DPS_per_other_player = (lugia_HP/lugia_timelimit_s)/nToBarelyBeatLugia
+
+
 
 def damage_multiplier(pkmn_usedAtk, pkmn_hurt, atk, typeadvantages, weather):
     STAB = 1
@@ -183,7 +188,6 @@ class timeline:
         for event in self.lst:
             print(str(event.t) + ":" + event.name, end=", ")
         print()
-        return
 
 
 class pdiff:
@@ -200,7 +204,7 @@ class pdiff:
 
 
 def player_AI_choose(atkr, dfdr, tline, t, glog, typeadvantages, timelimit_ms, 
-    dodge_success_probability, dodgeCMovesIfFree, weather = 'EXTREME'):
+    dodge_success_probability, dodgeCMovesIfFree, weather):
     # for now, atkr will always be the player's pokemon.
 
     # this function chooses which move to use depending on the situation.
@@ -473,46 +477,46 @@ def player_AI_choose(atkr, dfdr, tline, t, glog, typeadvantages, timelimit_ms,
     return atkrdiff, dfdrdiff, tline, glog
 
 def gymdfdr_AI_choose(atkr, dfdr, tline, t, current_move_duration, current_move_name, 
-    glog, typeadvantages, timelimit_ms, opportunityNum, randomness, weather = 'EXTREME'):
+    glog, typeadvantages, timelimit_ms, opportunityNum, randomness, weather):
     # in this function, atkr is always the attacker (player).
     # this is called when it is the defender's turn to start an atk,
-    # it chooses what ability to use NEXT (so not at time=t, but at time=t+duration+delay)
-    # based on the energy it has now.
+    # it chooses what to use NEXT (so not at time=t, but at time=t+duration+delay)
+    # based on the energy it WILL have AFTER the current move.
 
     t = tline.lst[0].t
     atkrdiff = pdiff()
     dfdrdiff = pdiff()
-
-    effective_dfdr_energy = dfdr.energy if current_move_name == dfdr.fmove.name else (dfdr.energy - dfdr.cmove.energycost)
+    
+    if current_move_name == dfdr.fmove.name:
+        projected_dfdr_energy = dfdr.energy + dfdr.fmove.energygain
+    else:
+        projected_dfdr_energy = dfdr.energy - dfdr.cmove.energycost
 
     # if you have enough energy, use a cmove 50% of time:
     use_cmove = False
-    if effective_dfdr_energy >= dfdr.cmove.energycost:
-        # print("opportunity = %d" % opportunityNum)
-        if (not randomness) and opportunityNum==1:
-            use_cmove = True
+    if projected_dfdr_energy >= dfdr.cmove.energycost:
         if randomness:
             if random.random()<0.5:
                 use_cmove = True
-            # # experimentally, cmoves with 100 energy cost are less likely to fire
-            # if abs(dfdr.cmove.energycost - 100) < 1 and random.random() < 0.33:
-            #     use_cmove = True
-            # elif abs(dfdr.cmove.energycost - 100) >= 1 and random.random() < 0.5:
-            #     use_cmove = True
-        opportunityNum = 1 - opportunityNum # switches 0 to 1 and vice versa,
-                        # causing cmove to be used every other opportunity.
-                        # Not used if randomness = True.
+        else:
+            # print("opportunity = %d" % opportunityNum)
+            if opportunityNum==1:
+                use_cmove = True
+            opportunityNum = 1 - opportunityNum # switches 0 to 1 and vice versa,
+                                                # causing cmove to be used every other opportunity.
 
     # choose when to begin the next move
-    if not randomness: t_next_move = t + current_move_duration + 2000
-    else:              t_next_move = t + current_move_duration + random.randint(1500,2500)
+    if not randomness:
+        t_next_move = t + current_move_duration + 2000
+    else:
+        t_next_move = t + current_move_duration + random.randint(1500,2500)
 
     if use_cmove:
-        # subtract energy cost:
+        # subtract energy cost at DWS
         t_energy_loss = t_next_move + dfdr.cmove.dws
         tline.add(event("dfdrEnergyDelta", t_energy_loss, energy_delta = -dfdr.cmove.energycost))
 
-        # deal damage to player:
+        # deal cmove damage to player at DWS
         t_player_hurt = t_next_move + dfdr.cmove.dws
         dmg = damage(dfdr, atkr, dfdr.cmove, typeadvantages, weather)
         tline.add(event("atkrHurt", t_player_hurt, dmg=dmg, move_hurt_by = dfdr.cmove))
@@ -525,13 +529,13 @@ def gymdfdr_AI_choose(atkr, dfdr, tline, t, current_move_duration, current_move_
         # add logs to announce move
         tline.add(event("updateLogs", t_next_move, eventtype="use_cmove", pkmn_usedAtk=dfdr))
         
-    # if not, use an fmove
+    # if not use a cmove, then use an fmove
     else:
-        # add energy gain just before next move is chosen
-        t_energy_gain = t_next_move - 1
+        # add energy gain at DWS
+        t_energy_gain = t_next_move + dfdr.fmove.dws
         tline.add(event("dfdrEnergyDelta", t_energy_gain, energy_delta = dfdr.fmove.energygain))
 
-        # add the fmove's damage to the attacker
+        # deal cmove damage to player at DWS
         t_player_hurt = t_next_move + dfdr.fmove.dws
         dmg = damage(dfdr, atkr, dfdr.fmove, typeadvantages, weather)
         tline.add(event("atkrHurt", t_player_hurt, dmg = dmg, move_hurt_by = dfdr.fmove))
@@ -543,6 +547,7 @@ def gymdfdr_AI_choose(atkr, dfdr, tline, t, current_move_duration, current_move_
 
         # add logs to announce move
         tline.add(event("updateLogs", t_next_move, eventtype="use_fmove", pkmn_usedAtk=dfdr))
+    
     return atkrdiff, dfdrdiff, tline, glog, opportunityNum
 
 # reminder: types of event (atkrFree, dfdrEnergyDelta, etc) are listed earlier in the code.
@@ -708,10 +713,10 @@ def update_logs(eventtype, t, atkr, dfdr, glog, timelimit_ms,
 
         msg = "%-45s -%3d HP / +%3d E" % (msg, damage, hurtEnergyGain)
         timelen = len("%.2f" % ((timelimit_ms - t)/1000)) + 2
-        if move_hurt_by is plib.fmove:
+        if move_hurt_by is fmove:
             msg2 = "\n" + " "*timelen + "%s gained %d energy." % (
                 pkmn_usedAtk.name, move_hurt_by.energygain)
-        elif move_hurt_by is plib.cmove:
+        elif move_hurt_by is cmove:
             msg2 = "\n" + " "*timelen + "%s used up %d energy." % (
                 pkmn_usedAtk.name, move_hurt_by.energycost)
 
@@ -824,7 +829,7 @@ def raid_1v1_battle(atkr, dfdr, speciesdata, typeadvantages, battle_type,
 
         
     if battle_type == "raid":
-        timelimit_ms = ( TIMELIMIT_LEGENDARYRAID_MS if plib.raidboss_dict[dfdr.name]["lvl"] == 5
+        timelimit_ms = ( TIMELIMIT_LEGENDARYRAID_MS if raidboss_dict[dfdr.name]["lvl"] == 5
             else TIMELIMIT_NORMALRAID_MS )
     if battle_type == "gym":
         timelimit_ms = TIMELIMIT_GYM_MS
@@ -993,10 +998,10 @@ def raid_singleteam_battle(atkrs, dfdr, speciesdata, typeadvantages, nOtherPlaye
     # battle a raid with just one person's team.
     battle_type = "raid"
     if "ho" in dfdr.name and "oh" in dfdr.name:
-        raise Exception("Check that plib.raids_list[5] has atkr.name " 
+        raise Exception("Check that raids_list[5] has atkr.name " 
             + "and consider re-coding ho_oh to work for any intermediate character input")
 
-    timelimit_ms = ( TIMELIMIT_LEGENDARYRAID_MS if plib.raidboss_dict[dfdr.name]["lvl"] == 5
+    timelimit_ms = ( TIMELIMIT_LEGENDARYRAID_MS if raidboss_dict[dfdr.name]["lvl"] == 5
         else TIMELIMIT_NORMALRAID_MS )
     tline = timeline()
 
@@ -1005,7 +1010,7 @@ def raid_singleteam_battle(atkrs, dfdr, speciesdata, typeadvantages, nOtherPlaye
         # Assume the background DPS is so that 10 people would just barely defeat a Lugia
         # then normalize it to nPlayers = nOtherPlayers
         # and scale it to the defender's defense rather than Lugia's.
-        dfdr_base_DEF_adj = dfdr.species.base_DEF + plib.raidboss_IVs[1]
+        dfdr_base_DEF_adj = dfdr.species.base_DEF + raidboss_IVs[1]
 
         background_atk_interval_s = 2   # this must be reasonably high or else rounding dmg sux
                                         # and reasonably low or else dmg is lost at the end
@@ -1077,8 +1082,11 @@ def invalidInputError(invalidstr):
         "Did you even NOTICE that you had entered '%s'???!??!" % 
         invalidstr)
 
+
+
+
 def manualuse():
-    fmovedata, cmovedata, speciesdata, CPMultiplier, typeadvantages = plib.importAllGM()
+    fmovedata, cmovedata, speciesdata, CPMultiplier, typeadvantages = importAllGM()
     print("Simulating. For each answer, you can just press 'y' for the default.")
     ans0 = input("Do you want to simulate a raid (of identical attackers)?\n"
         + "r = raid, g = gym battle: ").strip()
@@ -1090,14 +1098,14 @@ def manualuse():
     ans1 = input("What's the attacking pokemon's name or dex number? ").lower()
     if ans1=="y": ans1="alakazam"
     ans1 = (((ans1.replace('_',' '))).replace('-'," ")).replace(',',' ')
-    atkrDexNumber = plib.getPokedexNumber(ans1, speciesdata)
+    atkrDexNumber = getPokedexNumber(ans1, speciesdata)
     atkr_species = speciesdata[atkrDexNumber]
     atkr_name = atkr_species.name
     
     ans2 = input("And what's the defending pokemon's name or number? ").lower()
     if ans2=="y": ans2="machamp"
     ans2 = ans1 = (((ans2.replace('_',' '))).replace('-',' ')).replace(',',' ')
-    dfdrDexNumber = plib.getPokedexNumber(ans2, speciesdata)
+    dfdrDexNumber = getPokedexNumber(ans2, speciesdata)
     dfdr_species = speciesdata[dfdrDexNumber]
     dfdr_name = dfdr_species.name
 
@@ -1174,12 +1182,12 @@ def manualuse():
     weather = ans11.upper()
 
     # assign atkr and dfdr
-    atkr = plib.pokemon(atkr_species, atkrIVs, plib.CPM(atkrlvl, CPMultiplier), 
+    atkr = pokemon(atkr_species, atkrIVs, CPM(atkrlvl, CPMultiplier), 
         atkr_fmove, atkr_cmove, poketype="player")
-    if battle_type == "raid": dfdr = plib.pokemon(dfdr_species, 
+    if battle_type == "raid": dfdr = pokemon(dfdr_species, 
         [-1,-1,-1], 0, dfdr_fmove, dfdr_cmove, poketype="raid_boss")
-    if battle_type == "gym":  dfdr = plib.pokemon(dfdr_species, 
-        dfdrIVs, plib.CPM(dfdrlvl, CPMultiplier), 
+    if battle_type == "gym":  dfdr = pokemon(dfdr_species, 
+        dfdrIVs, CPM(dfdrlvl, CPMultiplier), 
         dfdr_fmove, dfdr_cmove, poketype="gym_defender")
 
     print("\nWe're finally done. Time to start the battle...")
@@ -1225,7 +1233,7 @@ def manualuse():
             print("%s won!" % atkr_postbattle.name)
 
     if battle_type == "raid":
-        atkrs = [plib.pokemon(atkr_species, atkrIVs, plib.CPM(atkrlvl, CPMultiplier), 
+        atkrs = [pokemon(atkr_species, atkrIVs, CPM(atkrlvl, CPMultiplier), 
         atkr_fmove, atkr_cmove, poketype="player") for n in range(6)]
         raidwinner, atkrs, dfdr, length_ms, tline = \
             raid_singleteam_battle(atkrs, dfdr, speciesdata, typeadvantages, nOtherPlayers,
