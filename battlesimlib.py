@@ -494,7 +494,7 @@ def gymdfdr_AI_choose(atkr, dfdr, tline, t, current_move_duration, current_move_
 
     # if you have enough energy, use a cmove 50% of time:
     use_cmove = False
-    if projected_dfdr_energy >= dfdr.cmove.energycost:
+    if projected_dfdr_energy + dfdr.cmove.energycost >= 0:
         if randomness:
             if random.random()<0.5:
                 use_cmove = True
