@@ -205,11 +205,6 @@ class pdiff:
             (self.HPdelta, self.energydelta))
 
 
-# Any move is broken down into 4 events:
-# 1. Announce (beginning of move)
-# 2. Energydelta (energy gets added or reduced, happens at DWS)
-# 3. Damage Inflicted (also happens at DWS)
-# 4. Cooldown over and asks for next action - Optional
 
 def atkr_use_move(pkm, tline, t, move, dmg, isFreeAfter=True):
     # tline.add(event("announce", t, msg="%s used %s" % (pkm.name, move.name)))
@@ -393,7 +388,6 @@ def player_AI_choose(atkr, dfdr, tline, t, glog, typeadvantages, timelimit_ms,
             update_logs("use_fmove", t, atkr, dfdr, glog, timelimit_ms, pkmn_usedAtk=atkr)
         if graphical: 
             glog = update_logs("use_fmove", t, atkr, dfdr, glog, timelimit_ms, pkmn_usedAtk=atkr)
-
         atkr_use_move(atkr, tline, t, atkr.fmove, atkr_fDmg)
         
         return atkrdiff, dfdrdiff, tline, glog
@@ -418,7 +412,6 @@ def player_AI_choose(atkr, dfdr, tline, t, glog, typeadvantages, timelimit_ms,
         atkr_use_move(atkr, tline, t, atkr.cmove, atkr_cDmg)
 
         return atkrdiff, dfdrdiff, tline, glog
-
 
     print("YOU SHOULD NEVER SEE THIS TEXT")
     sys.exit(1)
@@ -461,29 +454,8 @@ def gymdfdr_AI_choose(atkr, dfdr, tline, t, current_move,
     else:
         t_next_move = t + current_move.duration + random.randint(1500,2500)
 
-    # Now, pend events to timeline
+    # finally, pend events to timeline
     dfdr_use_move(dfdr, tline, t_next_move, next_move, dmg)
-
-    
-##    # 1. Energy delta
-##    t_energy_delta = t_next_move + next_move.dws
-##    tline.add(event("dfdrEnergyDelta", t_energy_delta, energy_delta = next_move.energydelta))
-##
-##    # 2. Deal damage
-##    t_player_hurt = t_next_move + next_move.dws
-##    
-##    tline.add(event("atkrHurt", t_player_hurt, dmg=dmg, move_hurt_by = next_move))
-##
-##    # 3. Set up next free time
-##    tFree = t_next_move
-##    tline.add(event("dfdrFree", t_next_move, current_move = next_move))
-##
-##    # 4. Add logs to announce move
-##    if next_move.mtype == 'c':
-##        tline.add(event("updateLogs", t_next_move, eventtype="use_cmove", pkmn_usedAtk=dfdr))
-##    else:
-##        tline.add(event("updateLogs", t_next_move, eventtype="use_fmove", pkmn_usedAtk=dfdr))
-    
     
     return atkrdiff, dfdrdiff, tline, glog, opportunityNum
 
