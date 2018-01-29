@@ -4,7 +4,7 @@ except NameError: pass
 
 import csv
 import sys
-import numpy as np
+#import numpy as np
 
 #CSV importer.
 #does not handle commas or newlines within entries.
@@ -99,7 +99,8 @@ def txtToNpArray(text):
     for n in text:
         # print("converting to float: %s"%n)
         text2+=[float(n)]
-    return np.asarray(text2)
+    #return np.asarray(text2)
+    return text2
 
 def convertDataTypes(data, typelist):
     nSuccessfulTypes = 0
