@@ -441,7 +441,7 @@ def gymdfdr_AI_choose(atkr, dfdr, tline, t, current_move,
 
     # decide fmove or move to use next.
     next_move = dfdr.fmove
-    if projected_dfdr_energy >= dfdr.cmove.energydelta:
+    if projected_dfdr_energy + dfdr.cmove.energydelta >= 0:
         # if you have enough energy, use a cmove 50% of time:
         if randomness:
             if random.random()<0.5:
@@ -1019,6 +1019,48 @@ def invalidInputError(invalidstr):
 
 
 
+def debug():
+    fmovedata, cmovedata, speciesdata, CPMultiplier, typeadvantages = importAllGM()
+    starting_t_ms = TIMELIMIT_GYM_MS
+    new_battle_bool = True
+
+    # assign atkr and dfdr
+    atkr = pokemon(speciesdata[getPokedexNumber('machamp', speciesdata)], [15,15,15], CPM(40, CPMultiplier), 
+                    fmovedata['counter'], cmovedata['dynamic punch'], poketype="player")
+    dfdr = pokemon(speciesdata[getPokedexNumber('blissey', speciesdata)], [15,15,15], CPM(40, CPMultiplier), 
+                    fmovedata['zen headbutt'], cmovedata['psychic'], poketype="gym_defender")
+ 
+    battle_type = 'gym'
+    dodgeCMovesIfFree = True
+    randomness = True
+    weather = 'CLOUDY'
+    
+    winner, atkr_postbattle, dfdr_postbattle, length_ms, tline = \
+        raid_1v1_battle(atkr, dfdr, speciesdata, typeadvantages, battle_type,
+            new_battle_bool, dodgeCMovesIfFree, randomness, 0, weather, timeline(), starting_t_ms)
+    
+    if atkr_postbattle.HP <=0 and dfdr_postbattle.HP<=0:
+        print("It was a tie! Who knows what happens now.")
+    if atkr_postbattle.HP <=0:
+        print("%s won!" % dfdr_postbattle.name)
+    elif dfdr_postbattle.HP <=0:
+        print("%s won!" % atkr_postbattle.name)
+    lengthsecs = length_ms/1000
+    print("Ending Stats:")
+    atkr.printstatus()
+    print("DPS: %.2f    EPS gain: %.2f" % (
+            (dfdr_postbattle.maxHP-dfdr_postbattle.HP)/lengthsecs, 
+            atkr_postbattle.total_energy_gained/lengthsecs)) 
+    print()
+    dfdr.printstatus()
+    print("time: %.2f seconds" % lengthsecs)
+
+debug()
+
+
+
+
+
 
 def manualuse():
     fmovedata, cmovedata, speciesdata, CPMultiplier, typeadvantages = importAllGM()
@@ -1069,10 +1111,10 @@ def manualuse():
     ans7 = input("What moves does the defender have? 'y' for default.\n" \
         "Example: '%s, %s': " % (dfdr_species.fmoves[0].name,
             dfdr_species.cmoves[0].name)).lower()
-    if 'y' in ans6: 
+    if 'y' == ans6: 
         ans6 = ('%s, %s' % 
             (atkr_species.fmoves[0].name, atkr_species.cmoves[0].name))
-    if 'y' in ans7:
+    if 'y' == ans7:
         ans7 = ('%s, %s' % 
             (dfdr_species.fmoves[0].name, dfdr_species.cmoves[0].name))
     ans6 = ans6.split(',')
@@ -1131,7 +1173,7 @@ def manualuse():
     dfdr_fDmg = damage(dfdr, atkr, dfdr.fmove, typeadvantages, weather)
     dfdr_cDmg = damage(dfdr, atkr, dfdr.cmove, typeadvantages, weather)
     print("For the record, the attacks are:")
-    print("       pkmn                   move    dws   duration  energydel  damage STAB*typadv")
+    print("       pkmn                   move    dws   duration  energydel  damage STAB*WAB*typadv")
     print("%11s fmove:%16s   %4d       %4d       %4d    %4d       %5g" % (
         atkr.name, atkr.fmove.name, atkr.fmove.dws, 
         atkr.fmove.duration, atkr.fmove.energydelta, atkr_fDmg, 
