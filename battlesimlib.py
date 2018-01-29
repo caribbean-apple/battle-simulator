@@ -432,6 +432,7 @@ def gymdfdr_AI_choose(atkr, dfdr, tline, t, current_move,
     
     projected_dfdr_energy = dfdr.energy + current_move.energydelta
 
+
     # decide fmove or move to use next.
     next_move = dfdr.fmove
     if projected_dfdr_energy + dfdr.cmove.energydelta >= 0:
