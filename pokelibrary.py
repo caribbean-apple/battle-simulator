@@ -75,29 +75,26 @@ for raidlvl in range(1,len(raids_list)):
             "timelimit_ms": TIMELIMIT_NORMALRAID_MS if raidlvl<5 else TIMELIMIT_LEGENDARYRAID_MS
             }
 
-
-class fmove:
-    def __init__(self, name, power, dtype, energygain, dws, duration):
+class _move:
+    def __init__(self, name, power, dtype, energydelta, dws, duration, mtype):
         self.name = name # string with name of atk
         self.power = power
         self.dtype = dtype # damage type ("fire", "water", etc)
-        self.energygain = energygain # energy added by this move
+        self.energydelta = energydelta # energy change. >= 0 for fmove and <=0 for cmove
         self.dws = dws # damageWindowStart (how long until the dmg is dealt?)
         self.duration = duration # time that cant be spent doing other stuff
+        self.mtype = mtype # move type ('f' for fmove and 'c' for cmove)
         self.legacyBool  = False # is this move legacy for the pokemon it is in?
-        if energygain < 0:
-            raise Exception("ERROR: VARIABLE energygain SHOULD NOT BE NEGATIVE")
 
-class cmove:
-    def __init__(self, name, power, dtype, energycost, dws, duration):
-        self.name = name # string with name of atk
-        self.power = power
-        self.dtype = dtype # damage type ("fire", "water", etc)
-        self.energycost = energycost # |energy| lost by this move >0
-        self.dws = dws # damageWindowStart (how long until the dmg is dealt?)
-        self.duration = duration # time that cant be spent doing other stuff
-        if energycost < 0:
-            raise Exception("ERROR: VARIABLE energycost SHOULD NOT BE NEGATIVE")
+class fmove(_move):
+    def __init__(self, name, power, dtype, energydelta, dws, duration):
+        super().__init__(name, power, dtype, energydelta, dws, duration, 'f')
+
+
+class cmove(_move):
+    def __init__(self, name, power, dtype, energydelta, dws, duration):
+        super().__init__(name, power, dtype, energydelta, dws, duration, 'c')
+
 
 class pokemonspecies:
     def __init__(self, dex, name, type1, type2, bstats, fmoves, cmoves):
@@ -254,7 +251,7 @@ def importGM(path=os.path.join(dirOfGM, GMFileName_Current)):
             
             #struggle and transform have no energydelta values
             if "STRUGGLE" in tid or "TRANSFORM" in tid or "REROLL" in tid: row +=[0]
-            else: row += [abs(data["itemTemplates"][n]['moveSettings']['energyDelta'])]
+            else: row += [data["itemTemplates"][n]['moveSettings']['energyDelta']]
 
             row += [data["itemTemplates"][n]['moveSettings']['damageWindowStartMs']]
             row += [data["itemTemplates"][n]['moveSettings']['durationMs']]
