@@ -123,7 +123,7 @@ class event:
     #        So it puts damage & energy diff events on the timeline for a move which STARTS at 
     #        time = t + duration + rand(1500,2500). This is different from atkrFree, which chooses
     #        a move that starts at time = t.
-    #        takes (name, t, current_move_duration, current_move_name)
+    #        takes (name, t, current_move)
     # pkmnHurt (pkmn=atkr or dfdr): A pokemon takes damage (and gains energy). Always happens
     #        separately from atkr/dfdrFree bc of the DamageWindowStart delay.
     #        takes (name, t, dmg, move_hurt_by)
@@ -144,7 +144,7 @@ class event:
     #        Currently only works with logs for move start.
 
     def __init__(self, name, t, dmg=None, energy_delta=None, msg=None, move_hurt_by=None, 
-        current_move_duration=None, current_move_name=None, pkmn_usedAtk=None, eventtype=None):
+        current_move=None, pkmn_usedAtk=None, eventtype=None):
         # the name of the event (dfdrHurt, atkrFree, etc) and the time it happens (ms).
         self.name = name
         self.t = t
@@ -156,9 +156,8 @@ class event:
         self.msg = msg # this is the text that should be printed for an announce event
         self.move_hurt_by = move_hurt_by
         # only for dfdrFree:
-        # this is the duration of the move which starts at the event time t.
-        self.current_move_duration = current_move_duration
-        self.current_move_name = current_move_name
+        # `current_move is the move which starts at the event time t.
+        self.current_move = current_move
         # only for updateLogs event
         self.pkmn_usedAtk = pkmn_usedAtk
         self.eventtype = eventtype
@@ -276,8 +275,8 @@ def player_AI_choose(atkr, dfdr, tline, t, glog, typeadvantages, timelimit_ms,
                         tline.add(event("announce", tAnnounces[n], 
                             msg="%.2f: %s used %s; gained %d energy." % 
                                 ((timelimit_ms - tAnnounces[n])/1000, 
-                                atkr.name, atkr.fmove.name, atkr.fmove.energygain)))
-                        tline.add(event("atkrEnergyDelta", tEnergyGains[n], energy_delta=atkr.fmove.energygain))
+                                atkr.name, atkr.fmove.name, atkr.fmove.energydelta)))
+                        tline.add(event("atkrEnergyDelta", tEnergyGains[n], energy_delta=atkr.fmove.energydelta))
                         tline.add(event("dfdrHurt", tAnnounces[n] + atkr.fmove.dws, 
                             dmg=atkr_fDmg, move_hurt_by = atkr.fmove))
                     tFree = tAnnounces[-1] + atkr.fmove.duration
@@ -286,7 +285,7 @@ def player_AI_choose(atkr, dfdr, tline, t, glog, typeadvantages, timelimit_ms,
 
                 # can I fit in a cmove?
                 time_left_if_atkr_cmoves = time_left_before_hurt - atkr.cmove.duration - TAP_TIMING_MS
-                if time_left_if_atkr_cmoves > 0 and atkr.energy >= atkr.cmove.energycost:
+                if time_left_if_atkr_cmoves > 0 and atkr.energy + atkr.cmove.energydelta >= 0:
                     # yes, I can. Add up (so far) the damage I can do:
                     atkr_dmg_done_before_hurt = atkr_cDmg
                     # how many fmoves can I still fit in after the cmove, by spam-tapping?
@@ -315,7 +314,7 @@ def player_AI_choose(atkr, dfdr, tline, t, glog, typeadvantages, timelimit_ms,
                                 ((timelimit_ms - tEnergyLoss)/1000, 
                                 atkr.name, atkr.cmove.name)))
                         tline.add(event("atkrEnergyDelta", tEnergyLoss,
-                            energy_delta = -atkr.cmove.energycost))
+                            energy_delta = atkr.cmove.energydelta))
                         tline.add(event("dfdrHurt", tEnergyLoss, 
                             dmg = atkr_cDmg, move_hurt_by = atkr.cmove))
                         # then add the fmoves
@@ -328,7 +327,7 @@ def player_AI_choose(atkr, dfdr, tline, t, glog, typeadvantages, timelimit_ms,
                                 msg="%.2f: %s used %s!" % 
                                     ((timelimit_ms - tAnnounces[n])/1000, 
                                     atkr.name, atkr.fmove.name)))
-                            tline.add(event("atkrEnergyDelta", tEnergyDeltas[n], energy_delta=atkr.fmove.energygain))
+                            tline.add(event("atkrEnergyDelta", tEnergyDeltas[n], energy_delta=atkr.fmove.energydelta))
                             tline.add(event("dfdrHurt", tDamages[n], 
                                 dmg=atkr_fDmg, move_hurt_by = atkr.fmove))
                         
@@ -375,7 +374,7 @@ def player_AI_choose(atkr, dfdr, tline, t, glog, typeadvantages, timelimit_ms,
                     if graphical: 
                         glog = update_logs("use_fmove", t, atkr, dfdr, glog, timelimit_ms,
                             pkmn_usedAtk=atkr)
-                    atkrdiff.energydelta += atkr.fmove.energygain
+                    atkrdiff.energydelta += atkr.fmove.energydelta
                     tFree = t + atkr.fmove.duration
                     tline.add(event("dfdrHurt", t + atkr.fmove.dws, 
                         dmg=atkr_fDmg, move_hurt_by = atkr.fmove))
@@ -394,14 +393,14 @@ def player_AI_choose(atkr, dfdr, tline, t, glog, typeadvantages, timelimit_ms,
 
     # at this point, either dodgeCMovesIfFree == False or I should atk as usual.
     # Other outcomes have already returned.
-    if atkr.energy < atkr.cmove.energycost:
+    if atkr.energy + atkr.cmove.energydelta < 0:
 
         ## OUTCOME 7: use fmove
         if showlog: 
             update_logs("use_fmove", t, atkr, dfdr, glog, timelimit_ms, pkmn_usedAtk=atkr)
         if graphical: 
             glog = update_logs("use_fmove", t, atkr, dfdr, glog, timelimit_ms, pkmn_usedAtk=atkr)
-        atkrdiff.energydelta += atkr.fmove.energygain
+        atkrdiff.energydelta += atkr.fmove.energydelta
         tFree = t + atkr.fmove.duration
         tline.add(event("dfdrHurt", t + atkr.fmove.dws, dmg=atkr_fDmg, move_hurt_by = atkr.fmove))    
         tline.add(event("atkrFree", tFree))
@@ -422,8 +421,8 @@ def player_AI_choose(atkr, dfdr, tline, t, glog, typeadvantages, timelimit_ms,
             tline.add(event("announce", tAnnounces[n], 
                 msg="%.2f: %s used %s; gained %d energy." % 
                     ((timelimit_ms - tAnnounces[n])/1000, 
-                    atkr.name, atkr.fmove.name, atkr.fmove.energygain)))
-            tline.add(event("atkrEnergyDelta", tEnergyGains[n], energy_delta=atkr.fmove.energygain))
+                    atkr.name, atkr.fmove.name, atkr.fmove.energydelta)))
+            tline.add(event("atkrEnergyDelta", tEnergyGains[n], energy_delta=atkr.fmove.energydelta))
             tline.add(event("dfdrHurt", tAnnounces[n] + atkr.fmove.dws, 
                 dmg=atkr_fDmg, move_hurt_by=atkr.fmove))
         tFree = tAnnounces[-1] + atkr.fmove.duration
@@ -447,7 +446,7 @@ def player_AI_choose(atkr, dfdr, tline, t, glog, typeadvantages, timelimit_ms,
                 ((timelimit_ms - tEnergyLoss)/1000, 
                 atkr.name, atkr.cmove.name)))
         tline.add(event("atkrEnergyDelta", tEnergyLoss, 
-            energy_delta = -atkr.cmove.energycost))
+            energy_delta = atkr.cmove.energydelta))
         tline.add(event("dfdrHurt", tEnergyLoss, dmg=atkr_cDmg,
             move_hurt_by=atkr.cmove))
         tFree = tUseCmove + atkr.cmove.duration
@@ -476,7 +475,7 @@ def player_AI_choose(atkr, dfdr, tline, t, glog, typeadvantages, timelimit_ms,
     sys.exit(1)
     return atkrdiff, dfdrdiff, tline, glog
 
-def gymdfdr_AI_choose(atkr, dfdr, tline, t, current_move_duration, current_move_name, 
+def gymdfdr_AI_choose(atkr, dfdr, tline, t, current_move, 
     glog, typeadvantages, timelimit_ms, opportunityNum, randomness, weather):
     # in this function, atkr is always the attacker (player).
     # this is called when it is the defender's turn to start an atk,
@@ -487,66 +486,50 @@ def gymdfdr_AI_choose(atkr, dfdr, tline, t, current_move_duration, current_move_
     atkrdiff = pdiff()
     dfdrdiff = pdiff()
     
-    if current_move_name == dfdr.fmove.name:
-        projected_dfdr_energy = dfdr.energy + dfdr.fmove.energygain
-    else:
-        projected_dfdr_energy = dfdr.energy - dfdr.cmove.energycost
+    projected_dfdr_energy = dfdr.energy + current_move.energydelta
 
-    # if you have enough energy, use a cmove 50% of time:
-    use_cmove = False
-    if projected_dfdr_energy >= dfdr.cmove.energycost:
+    # decide fmove or move to use next.
+    next_move = dfdr.fmove
+    if projected_dfdr_energy >= dfdr.cmove.energydelta:
+        # if you have enough energy, use a cmove 50% of time:
         if randomness:
             if random.random()<0.5:
-                use_cmove = True
+                next_move = dfdr.cmove
         else:
             # print("opportunity = %d" % opportunityNum)
             if opportunityNum==1:
-                use_cmove = True
+                next_move = dfdr.cmove
             opportunityNum = 1 - opportunityNum # switches 0 to 1 and vice versa,
                                                 # causing cmove to be used every other opportunity.
 
     # choose when to begin the next move
     if not randomness:
-        t_next_move = t + current_move_duration + 2000
+        t_next_move = t + current_move.duration + 2000
     else:
-        t_next_move = t + current_move_duration + random.randint(1500,2500)
+        t_next_move = t + current_move.duration + random.randint(1500,2500)
 
-    if use_cmove:
-        # subtract energy cost at DWS
-        t_energy_loss = t_next_move + dfdr.cmove.dws
-        tline.add(event("dfdrEnergyDelta", t_energy_loss, energy_delta = -dfdr.cmove.energycost))
 
-        # deal cmove damage to player at DWS
-        t_player_hurt = t_next_move + dfdr.cmove.dws
-        dmg = damage(dfdr, atkr, dfdr.cmove, typeadvantages, weather)
-        tline.add(event("atkrHurt", t_player_hurt, dmg=dmg, move_hurt_by = dfdr.cmove))
+    # Now, pend events to timeline
+    
+    # 1. Energy delta
+    t_energy_delta = t_next_move + next_move.dws
+    tline.add(event("dfdrEnergyDelta", t_energy_delta, energy_delta = next_move.energydelta))
 
-        # set up next free time:
-        tFree = t_next_move
-        tline.add(event("dfdrFree", t_next_move, 
-            current_move_duration = dfdr.cmove.duration, current_move_name = dfdr.cmove.name))
+    # 2. Deal damage
+    t_player_hurt = t_next_move + next_move.dws
+    dmg = damage(dfdr, atkr, next_move, typeadvantages, weather)
+    tline.add(event("atkrHurt", t_player_hurt, dmg=dmg, move_hurt_by = next_move))
 
-        # add logs to announce move
+    # 3. Set up next free time
+    tFree = t_next_move
+    tline.add(event("dfdrFree", t_next_move, current_move = next_move))
+
+    # 4. Add logs to announce move
+    if next_move.mtype == 'c':
         tline.add(event("updateLogs", t_next_move, eventtype="use_cmove", pkmn_usedAtk=dfdr))
-        
-    # if not use a cmove, then use an fmove
     else:
-        # add energy gain at DWS
-        t_energy_gain = t_next_move + dfdr.fmove.dws
-        tline.add(event("dfdrEnergyDelta", t_energy_gain, energy_delta = dfdr.fmove.energygain))
-
-        # deal cmove damage to player at DWS
-        t_player_hurt = t_next_move + dfdr.fmove.dws
-        dmg = damage(dfdr, atkr, dfdr.fmove, typeadvantages, weather)
-        tline.add(event("atkrHurt", t_player_hurt, dmg = dmg, move_hurt_by = dfdr.fmove))
-
-        # set up next free time:
-        tFree = t_next_move
-        tline.add(event("dfdrFree", t_next_move, 
-            current_move_duration = dfdr.fmove.duration, current_move_name = dfdr.fmove.name))
-
-        # add logs to announce move
         tline.add(event("updateLogs", t_next_move, eventtype="use_fmove", pkmn_usedAtk=dfdr))
+    
     
     return atkrdiff, dfdrdiff, tline, glog, opportunityNum
 
@@ -698,13 +681,13 @@ def update_logs(eventtype, t, atkr, dfdr, glog, timelimit_ms,
         # takes in pkmn_usedAtk
         msg = ("%.2f: %s used %s!" % (
             (timelimit_ms - t)/1000, pkmn_usedAtk.name, pkmn_usedAtk.fmove.name))
-        msg = "%-45s +  %d HP / +%3d E" % (msg, 0, pkmn_usedAtk.fmove.energygain)
+        msg = "%-45s +  %d HP / +%3d E" % (msg, 0, pkmn_usedAtk.fmove.energydelta)
         
     elif eventtype == "use_cmove":
         # takes in pkmn_usedAtk
         msg = ("%.2f: %s used %s!" % (
             (timelimit_ms - t)/1000, pkmn_usedAtk.name, pkmn_usedAtk.cmove.name))
-        msg = "%-45s +  %d HP / %3d E" % (msg, 0, -pkmn_usedAtk.cmove.energycost)
+        msg = "%-45s +  %d HP / %3d E" % (msg, 0, pkmn_usedAtk.cmove.energydelta)
 
     elif eventtype == "hurt":
         # takes in pkmn_usedAtk, pkmn_hurt, hurtEnergyGain, move_hurt_by
@@ -811,13 +794,12 @@ def raid_1v1_battle(atkr, dfdr, speciesdata, typeadvantages, battle_type,
         tline.add(event("atkrFree", 0))
         # energy gain happens JUST before the move starts so that the energy can be used
         # in the next defender move, which is chosen at beginning of this move.
-        tline.add(event("dfdrEnergyDelta", 1000-1, energy_delta = dfdr.fmove.energygain))
-        tline.add(event("dfdrFree",        1000, current_move_duration = dfdr.fmove.duration,
-            current_move_name = dfdr.fmove.name))
+        tline.add(event("dfdrEnergyDelta", 1000-1, energy_delta = dfdr.fmove.energydelta))
+        tline.add(event("dfdrFree",        1000, current_move = dfdr.fmove))
         dfdr_fDmg = damage(dfdr,atkr,dfdr.fmove,typeadvantages,weather)
         tline.add(event("atkrHurt",        1000 + dfdr.fmove.dws, 
             dmg = dfdr_fDmg, move_hurt_by = dfdr.fmove))
-        tline.add(event("dfdrEnergyDelta", 2000-1, energy_delta = dfdr.fmove.energygain))
+        tline.add(event("dfdrEnergyDelta", 2000-1, energy_delta = dfdr.fmove.energydelta))
         tline.add(event("atkrHurt",        2000 + dfdr.fmove.dws, 
             dmg = dfdr_fDmg, move_hurt_by = dfdr.fmove))
         dfdr.nonbackground_damage_taken = 0
@@ -876,12 +858,11 @@ def raid_1v1_battle(atkr, dfdr, speciesdata, typeadvantages, battle_type,
                 # player_AI_choose will also assign all new events to the timeline.
                 atkrdiff_thisevent, dfdrdiff_thisevent, tline, glog = player_AI_choose(
                     atkr, dfdr, tline, t, glog, typeadvantages, timelimit_ms, 
-                    dodge_success_probability, dodgeCMovesIfFree)
+                    dodge_success_probability, dodgeCMovesIfFree, weather)
             else: # dfdrFree
                 atkrdiff_thisevent, dfdrdiff_thisevent, tline, glog, opportunityNum = \
-                    gymdfdr_AI_choose(atkr, dfdr, tline, t, this_event.current_move_duration, 
-                        this_event.current_move_name, glog, typeadvantages, timelimit_ms, 
-                        opportunityNum, randomness)
+                    gymdfdr_AI_choose(atkr, dfdr, tline, t, this_event.current_move, glog,
+                                      typeadvantages, timelimit_ms, opportunityNum, randomness, weather)
             atkrdiff.add(atkrdiff_thisevent)
             dfdrdiff.add(dfdrdiff_thisevent)
             atkr.total_energy_gained += atkrdiff.energydelta
@@ -1199,19 +1180,19 @@ def manualuse():
     print("       pkmn                   move    dws   duration  energydel  damage STAB*typadv")
     print("%11s fmove:%16s   %4d       %4d       %4d    %4d       %5g" % (
         atkr.name, atkr.fmove.name, atkr.fmove.dws, 
-        atkr.fmove.duration, atkr.fmove.energygain, atkr_fDmg, 
+        atkr.fmove.duration, atkr.fmove.energydelta, atkr_fDmg, 
         damage_multiplier(atkr, dfdr, atkr.fmove, typeadvantages, weather)))
     print("%11s cmove:%16s   %4d       %4d       %4d    %4d       %5g" % (
         atkr.name, atkr.cmove.name, atkr.cmove.dws, 
-        atkr.cmove.duration, -atkr.cmove.energycost, atkr_cDmg, 
+        atkr.cmove.duration, -atkr.cmove.energydelta, atkr_cDmg, 
         damage_multiplier(atkr, dfdr, atkr.cmove, typeadvantages, weather)))
     print("%11s fmove:%16s   %4d       %4d       %4d    %4d       %5g" % (
         dfdr.name, dfdr.fmove.name, dfdr.fmove.dws, 
-        dfdr.fmove.duration, dfdr.fmove.energygain, dfdr_fDmg, 
+        dfdr.fmove.duration, dfdr.fmove.energydelta, dfdr_fDmg, 
         damage_multiplier(dfdr, atkr, dfdr.fmove, typeadvantages, weather)))
     print("%11s cmove:%16s   %4d       %4d       %4d    %4d       %5g" % (
         dfdr.name, dfdr.cmove.name, dfdr.cmove.dws, 
-        dfdr.cmove.duration, -dfdr.cmove.energycost, dfdr_cDmg, 
+        dfdr.cmove.duration, dfdr.cmove.energydelta, dfdr_cDmg, 
         damage_multiplier(dfdr, atkr, dfdr.cmove, typeadvantages, weather)))
     print()
     if showlog:
