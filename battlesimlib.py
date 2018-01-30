@@ -182,7 +182,7 @@ class timeline:
         bisect.insort_left(self.lst, event)
 
     def pop(self):
-        # remove the first (earliest) event and remove it from the queue
+        # return the first (earliest) event and remove it from the queue
         return self.lst.pop(0)
 
     def print(self):
@@ -192,6 +192,25 @@ class timeline:
         print()
 
 
+class graphicallog:
+    def __init__(self):
+        self.l = []
+        self.capacity = 8
+
+    def prnt(self):
+        print()
+        if len(self.l) < self.capacity:
+            print("\n"*(self.capacity - len(self.l)))
+        for msg in self.l:
+            print(msg)
+
+    def add(self, msg):
+        if len(self.l) < self.capacity:
+            self.l += [msg]
+        else:
+            self.l = self.l[1:] + [msg]
+
+            
 class pdiff:
     def __init__(self):
         self.HPdelta = 0
@@ -203,6 +222,44 @@ class pdiff:
     def prnt(self):
         print("HPdelta: %d\nenergydelta: %d" % 
             (self.HPdelta, self.energydelta))
+
+
+class world:
+    # This is a class to hold all settings (speciesdata, movedata, user settings),
+    # so the [...] part of player_AI_choose(...) is not so miserably long
+
+    # Part 1: GM file settings - Initialize all these by calling method "importAllGM"
+    fmovedata = None
+    cmovedata = None
+    speciesdata = None
+    CPMultiplier = None
+    typeadvantages = None
+
+    # Part 2: Pokemon settings
+    atkr = None
+    dodge_success_probability = 0
+    dodgeCMovesIfFree = False
+    
+    dfdr = None
+
+    # Part 3: Battle parameters variables
+    timelimit_ms = 0
+    tline = timeline()
+    glog = graphicallog()    
+    randomness = False
+    weather = 'EXTREME'
+
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            if hasattr(self, k):
+                setattr(self, k, v)
+
+    def importGM(self, GMFilePath):
+        self.fmovedata, self.cmovedata, self.speciesdata, self.CPMultiplier, self.typeadvantages = importGM(GMFilePath)
+
+    def importAllGM(self):
+        self.fmovedata, self.cmovedata, self.speciesdata, self.CPMultiplier, self.typeadvantages = importAllGM()
+
 
 
 
@@ -223,7 +280,7 @@ def dfdr_use_move(pkm, tline, t, move, dmg):
 
 
 def player_AI_choose(atkr, dfdr, tline, t, glog, typeadvantages, timelimit_ms, 
-    dodge_success_probability, dodgeCMovesIfFree, weather):
+    dodge_success_probability, dodgeCMovesIfFree, randomness, weather):
     # for now, atkr will always be the player's pokemon.
 
     # this function chooses which move to use depending on the situation.
@@ -371,7 +428,7 @@ def player_AI_choose(atkr, dfdr, tline, t, glog, typeadvantages, timelimit_ms,
                 else:
                     
                     ## OUTCOME 5: wait until dodge window begins + a short reaction time
-                    tline.add(event("atkrFree"), tDodgeWindowStart + CMOVE_REACTIONTIME_MS)
+                    tline.add(event("atkrFree", tDodgeWindowStart + CMOVE_REACTIONTIME_MS))
                     return atkrdiff, dfdrdiff, tline, glog
             else:
                 
@@ -582,23 +639,7 @@ def printgraphicalstatus(atkr, dfdr):
     print("|" + "="*currentEBarCount1 + 
         " "*(barCount - currentEBarCount1) + "|" + ("%3dE" % atkr.energy))
 
-class graphicallog:
-    def __init__(self):
-        self.l = []
-        self.capacity = 8
 
-    def prnt(self):
-        print()
-        if len(self.l) < self.capacity:
-            print("\n"*(self.capacity - len(self.l)))
-        for msg in self.l:
-            print(msg)
-
-    def add(self, msg):
-        if len(self.l) < self.capacity:
-            self.l += [msg]
-        else:
-            self.l = self.l[1:] + [msg]
 
 def update_logs(eventtype, t, atkr, dfdr, glog, timelimit_ms,
     pkmn_usedAtk=None, pkmn_hurt=None, damage=None, hurtEnergyGain=None, move_hurt_by=None):
@@ -785,7 +826,7 @@ def raid_1v1_battle(atkr, dfdr, speciesdata, typeadvantages, battle_type,
                 # player_AI_choose will also assign all new events to the timeline.
                 atkrdiff_thisevent, dfdrdiff_thisevent, tline, glog = player_AI_choose(
                     atkr, dfdr, tline, t, glog, typeadvantages, timelimit_ms, 
-                    dodge_success_probability, dodgeCMovesIfFree, weather)
+                    dodge_success_probability, dodgeCMovesIfFree, randomness, weather)
             else: # dfdrFree
                 atkrdiff_thisevent, dfdrdiff_thisevent, tline, glog, opportunityNum = \
                     gymdfdr_AI_choose(atkr, dfdr, tline, t, this_event.current_move, glog,
@@ -1001,7 +1042,7 @@ def debug():
     atkr = pokemon(speciesdata[getPokedexNumber('machamp', speciesdata)], [15,15,15], CPM(40, CPMultiplier), 
                     fmovedata['counter'], cmovedata['dynamic punch'], poketype="player")
     dfdr = pokemon(speciesdata[getPokedexNumber('blissey', speciesdata)], [15,15,15], CPM(40, CPMultiplier), 
-                    fmovedata['zen headbutt'], cmovedata['psychic'], poketype="gym_defender")
+                    fmovedata['zen headbutt'], cmovedata['hyper beam'], poketype="gym_defender")
  
     battle_type = 'gym'
     dodgeCMovesIfFree = True
@@ -1027,11 +1068,6 @@ def debug():
     print()
     dfdr.printstatus()
     print("time: %.2f seconds" % lengthsecs)
-
-debug()
-
-
-
 
 
 
