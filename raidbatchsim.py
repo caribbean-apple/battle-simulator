@@ -1,14 +1,14 @@
 from __future__ import print_function, division
-import battlesimlib as bsl
-import pokelibrary as plib
-import csvimport as cv
-import csv
 import copy
 import itertools
 import time
 import math
 try: input = raw_input
 except NameError: pass
+
+import battlesimlib as bsl
+import pokelibrary as plib
+import csvimport as cv
 
 # in batchsim 2.0, you can enter the name of a CSV file instead of an attacker (or defender)
 # name. Then, instead of matching a single pokemon against that defender (or attacker),

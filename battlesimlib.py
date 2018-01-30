@@ -7,7 +7,8 @@ try: input = raw_input
 except NameError: pass
 import random
 
-from pokelibrary import *   # to take out "" prefix of many variables for shorter code
+from pokelibrary import *
+from ui import *
 import csvimport as cv
 import winsound
 
@@ -27,9 +28,7 @@ if log options (graphical? showlog?) are on.
 #
 # If dodge_success_probability < 0.4, the attacker does not even attempt to dodge.
 
-graphical = False
-if graphical: showlog = False # it will show anyway.
-else: showlog = True
+
 # the following 2 variables are now only be taken as inputs to be safe:
 # dodgeCMovesIfFree = True # this variable will be set False if dodge_success_probability < 0.4
 # randomness = True           # Niantic uses randomness. But maybe you won't.
@@ -65,8 +64,6 @@ CMOVE_OVERKILL_CHOICE_PERCENT_THRESHHOLD = 0.30 # if this=0.30, then the attacke
                                                 # the cmove's damage would be overkill.
                                                 # currently NOT IMPLEMENTED.
                                     
-# CMOVE_CHARGETIME_MS = 500           # how long it takes between tap and when the cmove is announced. Not needed after battle UI updated
-
 STAB_MULTIPLIER = 1.2               # Same Type Attack Bonus damage multiplier
 
 WAB_MULTIPLIER = 1.2                # Weather boosted Attack Bonus damage multiplier
@@ -77,9 +74,8 @@ ATKR_SUBSTITUTE_DELAY_MS_IDEAL = 900    # when switching out atkr or after death
 ATKR_SUBSTITUTE_LAG = 577               # how much lag follows the sub? found by frame-counting.
 ATKR_SUBSTITUTE_DELAY_MS = ATKR_SUBSTITUTE_DELAY_MS_IDEAL + ATKR_SUBSTITUTE_LAG
 
-DODGE_FAINT_BUG = True              # is there still a bug in the game when you dodge a move that would kill you?
-
-DODGE_FAINT_AVOID_PERCENT = 0.5     # to avoid the bug, if BUG=True, I will not dodge if my HP<50%.
+DODGE_FAINT_BUG = True              # the damn dodge glitch. Just celebrated its anniversary
+                                    # If set True, to avoid the bug, I will not dodge if I'm within the KO range
 
 # subjective parameter used to determine how much damage other players do
 # although 11 is pretty accurate in my experience in NYC and in Munich
@@ -88,6 +84,14 @@ lugia_HP = raidboss_HP[5]
 lugia_base_DEF_adj = 323 + raidboss_IVs[1]
 lugia_timelimit_s = TIMELIMIT_LEGENDARYRAID_MS//1000
 vs_lugia_DPS_per_other_player = (lugia_HP/lugia_timelimit_s)/nToBarelyBeatLugia
+
+
+
+
+def invalidInputError(invalidstr):
+    raise Exception("\nTHAT'S AN INVALID INPUT.\n" +
+        "Did you even NOTICE that you had entered '%s'???!??!" % 
+        invalidstr)
 
 
 
@@ -192,24 +196,6 @@ class timeline:
         print()
 
 
-class graphicallog:
-    def __init__(self):
-        self.l = []
-        self.capacity = 8
-
-    def prnt(self):
-        print()
-        if len(self.l) < self.capacity:
-            print("\n"*(self.capacity - len(self.l)))
-        for msg in self.l:
-            print(msg)
-
-    def add(self, msg):
-        if len(self.l) < self.capacity:
-            self.l += [msg]
-        else:
-            self.l = self.l[1:] + [msg]
-
             
 class pdiff:
     def __init__(self):
@@ -225,8 +211,8 @@ class pdiff:
 
 
 class world:
-    # This is a class to hold all settings (speciesdata, movedata, user settings),
-    # so the [...] part of player_AI_choose(...) is not so miserably long
+    # This is used for holding all settings (speciesdata, movedata, user settings),
+    # so that the [...] part of player_AI_choose(...) won't be miserably long
 
     # Part 1: GM file settings - Initialize all these by calling method "importAllGM"
     fmovedata = None
@@ -291,49 +277,12 @@ def player_AI_choose(wd, t):
     dfdr = wd.dfdr
     tline = wd.tline
 
-    # this function chooses which move to use depending on the situation.
-    # Here is the decision flow:
-    # IF dodgeCMovesIfFree == True and the enemy has announced a cmove:
-        ## IF I can kill enemy before being hit by defender's cmove
-            ### IF I can kill it with fmove spam
-                #### OUTCOME 1: fmove spam until dfdr dies
-            ### ELIF I can kill it with cmove, + fmove spam:
-                #### OUTCOME 2: cmove, then fmove spam until dfdr dies
-        ## ELIF it's already in the dodge window
-            ### OUTCOME 3: dodge (even if you have already dodged. dodging takes 500ms and the window is 700ms)
-            ### it takes 1 or 2 dodges to do it. With 66% probability you need two dodges.
-            ### If after your dodge is over, you are still in the dodge window, then you roll another dodge.
-            ### If dodge_success_probability < threshhold, don't even bother dodging.
-            ### threshhold = 40% for solo raids, 65% for team raids.
-            ### dodge_success_probability is the probability of making a dodge if you are free to dodge.
-            ### So the actual dodge probability is lower than dodge_success_probability,
-            ### because sometimes you are busy during dodge time.
-            ### dodge_success_probability is based on how quick the enemy's atk is (damageWindowStart):
-            ### dodge_success_probability = 0.2 + ((1.0-0.2)/(3000-1800))*(dWS - 1800)
-            ### the formula is approximate based on my own personal dodge success.
-        ## ELIF I need to wait or I will miss my dodge AND it's past cmovereactiontime:
-            ### IF I can still fit in an fmove
-                #### OUTCOME 4: Use fmove
-            #### ELSE
-                #### OUTCOME 5: wait until dodge window begins + a short reaction time
-        ## ELSE (aka if it's before cmovereactiontime):
-            ### OUTCOME 6: just attack as usual
-    # ELSE, I will attack:
-        ## IF I do not have enough energy for a cmove:
-            ### OUTCOME 7: use fmove
-        ## ELIF fmove spam would kill before my cmove comes out,
-            ### OUTCOME 8: fmove spam
-        ## ELSE: I have enough energy for a cmove, so:
-            ### OUTCOME 9: use cmove
-        
-        ##MAYBE TO ADD LATER: ELIF cmove would be very overkill and I have at least 35% HP remaining, use fmove
-
     atkrdiff, dfdrdiff = pdiff(), pdiff()
     atkr_fDmg = damage(atkr, dfdr, atkr.fmove, wd.typeadvantages, wd.weather)
     atkr_cDmg = damage(atkr, dfdr, atkr.cmove, wd.typeadvantages, wd.weather)
     dfdr_cDmg = damage(dfdr, atkr, dfdr.cmove, wd.typeadvantages, wd.weather)
 
-    if wd.dodgeCMovesIfFree and (DODGE_FAINT_BUG and atkr.HP/atkr.maxHP > DODGE_FAINT_AVOID_PERCENT):
+    if wd.dodgeCMovesIfFree and (not DODGE_FAINT_BUG or wd.nOtherPlayers ==0 or atkr.HP > dfdr_cDmg):
         atkrHurt_cmove_events = [x for x in tline.lst if (x.name=='atkrHurt' and x.dmg==dfdr_cDmg)]
         if len(atkrHurt_cmove_events) > 0:
             # At this point, the enemy has announced a cmove.
@@ -516,189 +465,7 @@ def gymdfdr_AI_choose(wd, t, current_move):
     
     return atkrdiff, dfdrdiff
 
-# reminder: types of event (atkrFree, dfdrEnergyDelta, etc) are listed earlier in the code.
 
-def printgraphicalstart():
-    print("\n"*60)
-    print("""
-       _   _   _   _   _   _   _   _   _   _  
-      / \ / \ / \ / \ / \ / \ / \ / \ / \ / \ 
-     ( S ( I ( M ( U ( L ( A ( T ( I ( N ( G )
-      \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ \_/ 
-              _   _   _   _   _   _           
-             / \ / \ / \ / \ / \ / \          
-            ( B ( A ( T ( T ( L ( E )         
-             \_/ \_/ \_/ \_/ \_/ \_/        
-
-
-
-
-            """)
-    time.sleep(2)
-    print("\n"*60)
-    print(
-            """
-
-
-
-                     _____
-                    |__  /
-                     /_ < 
-                   ___/ / 
-                  /____/        
-
-
-
-
-            """)
-    time.sleep(1)
-    print("\n"*60)
-    print(
-            """
-
-
-
-                     ___ 
-                    |__ \\
-                    __/ /
-                   / __/ 
-                  /____/ 
-
-
-
-
-            """)
-    time.sleep(1)
-    print("\n"*60)
-    print(
-            """
-
-
-
-                     ___
-                    <  /
-                    / / 
-                   / /  
-                  /_/         
-
-
-
-
-            """)
-    time.sleep(1)
-    print("\n"*60)
-    print(
-            """
-
-
-
-               __________  __
-              / ____/ __ \/ /
-             / / __/ / / / / 
-            / /_/ / /_/ /_/  
-            \____/\____(_)   
-                                                   
-
-
-
-            """)
-    time.sleep(1)
-
-def printgraphicalstatus(atkr, dfdr):
-    windowWidth = 60
-    windowHeight = 15
-    frameWidth = 2
-    barCount = 20
-    statusBarWidth = barCount + frameWidth
-
-    atkrname = atkr.name.upper() + " (attacker)"
-    dfdr_name = dfdr.name.upper() + " (defender)"
-    #dfdr may go past 100E, then just show it as full with 100:
-    dfdrenergy = min(dfdr.energy, 100)
-    # ^this does NOT actually change dfdr's energy, just the visuals.
-
-    currentHPBarCount1 = int(math.ceil(barCount*(atkr.HP/atkr.maxHP)))
-    currentEBarCount1 = int(math.ceil(barCount*(atkr.energy/atkr.maxenergy)))
-
-    currentHPBarCount2 = int(math.ceil(barCount*(dfdr.HP/dfdr.maxHP)))
-    currentEBarCount2 = int(math.ceil(barCount*(dfdrenergy/ATKR_MAX_ENERGY)))
-
-    print("\n"*8)
-    print(" "*(windowWidth - len(dfdr_name)) + dfdr_name)
-    print(" "*(windowWidth - statusBarWidth - 5) + ("%3dHP|" % dfdr.HP) + 
-        "="*currentHPBarCount2 + " "*(barCount - currentHPBarCount2) + "|")
-    print(" "*(windowWidth - statusBarWidth - 5) + ("%3dE |" % dfdrenergy) + 
-        "="*currentEBarCount2 + " "*(barCount - currentEBarCount2) + "|")
-
-    print("\n"*(windowHeight -6), end="")
-
-    print(atkrname)
-    print("|" + "="*currentHPBarCount1 + 
-        " "*(barCount - currentHPBarCount1) + "|" + ("%3dHP" % atkr.HP))
-    print("|" + "="*currentEBarCount1 + 
-        " "*(barCount - currentEBarCount1) + "|" + ("%3dE" % atkr.energy))
-
-
-
-def update_logs(wd, t, eventtype, pkmn_usedAtk=None, pkmn_hurt=None,
-    damage=None, hurtEnergyGain=None, move_hurt_by=None):
-    
-    msg2 = ""
-    
-    if eventtype == "use_fmove":
-        # takes in pkmn_usedAtk
-        msg = ("%.2f: %s used %s!" % (
-            (wd.timelimit_ms - t)/1000, pkmn_usedAtk.name, pkmn_usedAtk.fmove.name))
-        msg = "%-45s +  %d HP / +%3d E" % (msg, 0, pkmn_usedAtk.fmove.energydelta)
-        
-    elif eventtype == "use_cmove":
-        # takes in pkmn_usedAtk
-        msg = ("%.2f: %s used %s!" % (
-            (wd.timelimit_ms - t)/1000, pkmn_usedAtk.name, pkmn_usedAtk.cmove.name))
-        msg = "%-45s +  %d HP / %3d E" % (msg, 0, pkmn_usedAtk.cmove.energydelta)
-
-    elif eventtype == "hurt":
-        # takes in pkmn_usedAtk, pkmn_hurt, hurtEnergyGain, move_hurt_by
-        msg = "%.2f: %s was hurt by %s!" % (
-            (wd.timelimit_ms - t)/1000, pkmn_hurt.name, move_hurt_by.name)
-
-        msg = "%-45s -%3d HP / +%3d E" % (msg, damage, hurtEnergyGain)
-        timelen = len("%.2f" % ((wd.timelimit_ms - t)/1000)) + 2
-        if move_hurt_by is fmove:
-            msg2 = "\n" + " "*timelen + "%s gained %d energy." % (
-                pkmn_usedAtk.name, move_hurt_by.energygain)
-        elif move_hurt_by is cmove:
-            msg2 = "\n" + " "*timelen + "%s used up %d energy." % (
-                pkmn_usedAtk.name, move_hurt_by.energycost)
-
-    elif eventtype == "dodge":
-        # takes in pkmn_usedAtk, pkmn_hurt
-        msg = "%.2f: %s dodged %s!" % (
-            (wd.timelimit_ms - t)/1000, pkmn_hurt.name, pkmn_usedAtk.cmove.name)
-
-    elif eventtype == "background_dmg":
-        # takes in pkmn_hurt
-        msg = "%.2f: %s took background dmg!" % (
-            (timelimit_ms - t)/1000, pkmn_hurt.name)
-        msg = "%-45s -%3d HP / +%3d E" % (msg, damage, hurtEnergyGain)
-
-    atkrHP, atkrEnergy = str(int(wd.atkr.HP)), str(int(wd.atkr.energy))
-    dfdrHP, dfdrEnergy = str(int(wd.dfdr.HP)), str(int(wd.dfdr.energy))
-
-    msg += ( " " * (66-len(msg)) 
-        + atkrHP + " "*(4 - len(atkrHP))
-        + "| " + atkrEnergy + " "*(6-len(atkrEnergy)) 
-        + " "*3 + dfdrHP + " "*(4 - len(dfdrHP))
-        + "| %-3d"%wd.dfdr.energy + " "*4 + "%6d" % t )
-
-    msg = msg + msg2
-
-    if showlog:
-        print(msg)
-        return
-    
-    if graphical: 
-        wd.glog.add(msg)
 
 def otherplayers_DPS_profile(t):
     # this function gives the percent of the average DPS that is done as a function of time.
@@ -1002,230 +769,5 @@ def raid_singleteam_battle(wd):
     return raidwinner, t
 
 
-def invalidInputError(invalidstr):
-    raise Exception("\nTHAT'S AN INVALID INPUT.\n" +
-        "Did you even NOTICE that you had entered '%s'???!??!" % 
-        invalidstr)
 
 
-
-def debug():
-
-    debug_world = world()
-    debug_world.importAllGM()
-    
-    debug_world.starting_t_ms = TIMELIMIT_GYM_MS
-    debug_world.new_battle_bool = True
-
-    # assign atkr and dfdr
-    debug_world.atkr = pokemon(debug_world.speciesdata[getPokedexNumber('machamp', debug_world.speciesdata)], [15,15,15],
-                               CPM(40, debug_world.CPMultiplier), 
-                    debug_world.fmovedata['counter'], debug_world.cmovedata['dynamic punch'], poketype="player")
-    debug_world.dfdr = pokemon(debug_world.speciesdata[getPokedexNumber('blissey', debug_world.speciesdata)], [15,15,15],
-                               CPM(40, debug_world.CPMultiplier), 
-                    debug_world.fmovedata['pound'], debug_world.cmovedata['hyper beam'], poketype="gym_defender")
- 
-    debug_world.battle_type = 'gym'
-    debug_world.dodgeCMovesIfFree = True
-    debug_world.randomness = True
-    debug_world.weather = 'CLOUDY'
-    
-    winner, length_ms = raid_1v1_battle(debug_world)
-    
-    if winner == -1:
-        print("It was a tie! Who knows what happens now.")
-    elif winner == 1:
-        print("%s won!" % debug_world.atkr.name)
-    elif winner == 2:
-        print("%s won!" % debug_world.dfdr.name)
-    lengthsecs = length_ms/1000
-    print("Ending Stats:")
-    debug_world.atkr.printstatus()
-    print("DPS: %.2f    EPS gain: %.2f" % (
-            (debug_world.dfdr.maxHP - debug_world.dfdr.HP)/lengthsecs, 
-            debug_world.atkr.total_energy_gained/lengthsecs)) 
-    print()
-    debug_world.dfdr.printstatus()
-    print("time: %.2f seconds" % lengthsecs)
-
-
-
-def manualuse():
-    fmovedata, cmovedata, speciesdata, CPMultiplier, typeadvantages = importAllGM()
-    print("Simulating. For each answer, you can just press 'y' for the default.")
-    ans0 = input("Do you want to simulate a raid (of identical attackers)?\n"
-        + "r = raid, g = gym battle: ").strip()
-    
-    if ans0 in ["r", "y"]: battle_type = "raid"
-    elif ans0 == "g": battle_type = "gym"
-    else: invalidInputError(ans0)
-
-    ans1 = input("What's the attacking pokemon's name or dex number? ").lower()
-    if ans1=="y": ans1="alakazam"
-    ans1 = (((ans1.replace('_',' '))).replace('-'," ")).replace(',',' ')
-    atkrDexNumber = getPokedexNumber(ans1, speciesdata)
-    atkr_species = speciesdata[atkrDexNumber]
-    atkr_name = atkr_species.name
-    
-    ans2 = input("And what's the defending pokemon's name or number? ").lower()
-    if ans2=="y": ans2="machamp"
-    ans2 = ans1 = (((ans2.replace('_',' '))).replace('-',' ')).replace(',',' ')
-    dfdrDexNumber = getPokedexNumber(ans2, speciesdata)
-    dfdr_species = speciesdata[dfdrDexNumber]
-    dfdr_name = dfdr_species.name
-
-    ans3 = input("Default is level 39 with 14, 14, 14 IV. Is that OK? y/n: ").lower()
-    if ans3 in ["no", "n", "no."]:
-        ans4 = input("OK Mr. Picky. Tell me the level and atk/def/sta IVs of the atkr " \
-            "in this format: \n'32.5, 14, 15, 14' without the quotes: ")
-        if not (battle_type == 'raid'):
-            ans5 = input("Now also tell me the level and atk/def/sta IVs of the dfdr " \
-                "in the same format: ")
-    else:
-        # self, pokemonspecies, IVs, CPM, fmove, cmove):
-        ans4 = "39, 14, 14, 14"
-        ans5 = "39, 14, 14, 14"
-    ans4 = ans4.split(',')
-    try: atkrlvl, atkrIVs = float(ans4[0]), [int(x.strip()) for x in ans4[1:]]
-    except ValueError: invalidInputError(ans4)
-    if not battle_type == 'raid':
-        ans5 = ans5.split(',')
-        try: dfdrlvl, dfdrIVs = float(ans5[0]), [int(x.strip()) for x in ans5[1:]]
-        except ValueError: invalidInputError(ans5)
-
-    ans6 = input("What moves does the attacker have? 'y' for default.\n" \
-        "Example: '%s, %s': " % (atkr_species.fmoves[0].name,
-            atkr_species.cmoves[0].name)).lower()
-    ans7 = input("What moves does the defender have? 'y' for default.\n" \
-        "Example: '%s, %s': " % (dfdr_species.fmoves[0].name,
-            dfdr_species.cmoves[0].name)).lower()
-    if 'y' == ans6: 
-        ans6 = ('%s, %s' % 
-            (atkr_species.fmoves[0].name, atkr_species.cmoves[0].name))
-    if 'y' == ans7:
-        ans7 = ('%s, %s' % 
-            (dfdr_species.fmoves[0].name, dfdr_species.cmoves[0].name))
-    ans6 = ans6.split(',')
-    ans7 = ans7.split(',')
-    ans6 = [(((x.replace('_',' '))).replace('-'," ")).replace(',',' ').strip() for x in ans6]
-    ans7 = [(((x.replace('_',' '))).replace('-'," ")).replace(',',' ').strip() for x in ans7]
-    try: atkr_fmove = fmovedata[ans6[0]]
-    except KeyError: invalidInputError(ans6[0])
-    try: atkr_cmove = cmovedata[ans6[1]]
-    except KeyError: invalidInputError(ans6[1])
-    try: dfdr_fmove = fmovedata[ans7[0]]
-    except KeyError: invalidInputError(ans7[0])
-    try: dfdr_cmove = cmovedata[ans7[1]]
-    except KeyError: invalidInputError(ans7[1])
-
-    # if raid: how many other players should attack in the background?
-    if battle_type == 'raid':
-        ans8 = input("How many other players should attack in the background? ")
-        if ans8=="y": ans8 = 0
-        nOtherPlayers = int(ans8)
-    
-    ans9 = input("Dodge cmoves if free? y/n: ").strip()
-    if ans9 == "y":
-        dodgeCMovesIfFree = True
-    else: 
-        dodgeCMovesIfFree = False
-        print("Okay, attacker will not dodge at all.")
-
-    ans10 = input("Let CPU use randomness, as in the real game? "
-        + "This also adds a random element to background damage. y/n: ").strip()
-    if ans10 == "y":
-        randomness = True
-    else: 
-        randomness = False
-        print("Okay, randomness will be replaced by a mean value.")
-
-    ans11 = input("*UPDATE* How's the weather? ")
-    while ans11.upper() not in WEATHER_LIST:
-        print("That is an invalid weather. Below are the available weather:")
-        for w in WEATHER_LIST: print(w)
-        ans11 = input("\nNow choose again:")
-    weather = ans11.upper()
-
-    # assign atkr and dfdr
-    atkr = pokemon(atkr_species, atkrIVs, CPM(atkrlvl, CPMultiplier), 
-        atkr_fmove, atkr_cmove, poketype="player")
-    if battle_type == "raid": dfdr = pokemon(dfdr_species, 
-        [-1,-1,-1], 0, dfdr_fmove, dfdr_cmove, poketype="raid_boss")
-    if battle_type == "gym":  dfdr = pokemon(dfdr_species, 
-        dfdrIVs, CPM(dfdrlvl, CPMultiplier), 
-        dfdr_fmove, dfdr_cmove, poketype="gym_defender")
-
-    print("\nWe're finally done. Time to start the battle...")
-    atkr_fDmg = damage(atkr, dfdr, atkr.fmove, typeadvantages, weather)
-    atkr_cDmg = damage(atkr, dfdr, atkr.cmove, typeadvantages, weather)
-    dfdr_fDmg = damage(dfdr, atkr, dfdr.fmove, typeadvantages, weather)
-    dfdr_cDmg = damage(dfdr, atkr, dfdr.cmove, typeadvantages, weather)
-    print("For the record, the attacks are:")
-    print("       pkmn                   move    dws   duration  energydel  damage STAB*WAB*typadv")
-    print("%11s fmove:%16s   %4d       %4d       %4d    %4d       %5g" % (
-        atkr.name, atkr.fmove.name, atkr.fmove.dws, 
-        atkr.fmove.duration, atkr.fmove.energydelta, atkr_fDmg, 
-        damage_multiplier(atkr, dfdr, atkr.fmove, typeadvantages, weather)))
-    print("%11s cmove:%16s   %4d       %4d       %4d    %4d       %5g" % (
-        atkr.name, atkr.cmove.name, atkr.cmove.dws, 
-        atkr.cmove.duration, -atkr.cmove.energydelta, atkr_cDmg, 
-        damage_multiplier(atkr, dfdr, atkr.cmove, typeadvantages, weather)))
-    print("%11s fmove:%16s   %4d       %4d       %4d    %4d       %5g" % (
-        dfdr.name, dfdr.fmove.name, dfdr.fmove.dws, 
-        dfdr.fmove.duration, dfdr.fmove.energydelta, dfdr_fDmg, 
-        damage_multiplier(dfdr, atkr, dfdr.fmove, typeadvantages, weather)))
-    print("%11s cmove:%16s   %4d       %4d       %4d    %4d       %5g" % (
-        dfdr.name, dfdr.cmove.name, dfdr.cmove.dws, 
-        dfdr.cmove.duration, dfdr.cmove.energydelta, dfdr_cDmg, 
-        damage_multiplier(dfdr, atkr, dfdr.cmove, typeadvantages, weather)))
-    print()
-    if showlog:
-        p1name_len = len(atkr.name)
-        p1space = 12 - len(atkr.name)
-        print(" "*66 + atkr.name + " "*p1space + " "*3 + dfdr.name)
-        print(" "*66 + "HP  | energy" + " "*3 + "HP  | energy      t")
-    if battle_type == "gym":
-        starting_t_ms = TIMELIMIT_GYM_MS
-        new_battle_bool = True
-        winner, atkr_postbattle, dfdr_postbattle, length_ms, tline = \
-            raid_1v1_battle(atkr, dfdr, speciesdata, typeadvantages, battle_type,
-                new_battle_bool, dodgeCMovesIfFree, randomness, 0, weather, timeline(), starting_t_ms)
-        if atkr_postbattle.HP <=0 and dfdr_postbattle.HP<=0:
-            print("It was a tie! Who knows what happens now.")
-        if atkr_postbattle.HP <=0:
-            print("%s won!" % dfdr_postbattle.name)
-        elif dfdr_postbattle.HP <=0:
-            print("%s won!" % atkr_postbattle.name)
-
-    if battle_type == "raid":
-        atkrs = [pokemon(atkr_species, atkrIVs, CPM(atkrlvl, CPMultiplier), 
-        atkr_fmove, atkr_cmove, poketype="player") for n in range(6)]
-        raidwinner, atkrs, dfdr, length_ms, tline = \
-            raid_singleteam_battle(atkrs, dfdr, speciesdata, typeadvantages, nOtherPlayers,
-                dodgeCMovesIfFree, randomness, weather)
-        if dfdr.HP<=0:
-            print("The attacking team won!")
-        else:
-            print("The raid boss won!")
-        # did not bother to implement tie for this.
-
-    lengthsecs = length_ms/1000
-    print("Ending Stats:")
-    if battle_type=="raid":
-        for atkr in atkrs: atkr.printstatus()
-    else:
-        atkr.printstatus()
-        print("DPS: %.2f    EPS gain: %.2f" % (
-            (dfdr_postbattle.maxHP-dfdr_postbattle.HP)/lengthsecs, 
-            atkr_postbattle.total_energy_gained/lengthsecs))
-    
-    print()
-    dfdr.printstatus()
-    # print("%s: %d/%d HP" % (
-    #     dfdr_postbattle.name, dfdr_postbattle.HP, dfdr_postbattle.maxHP))
-    # print(" "*len(dfdr_postbattle.name) + "  %d/%d Energy" % (
-    #     dfdr_postbattle.energy, dfdr_postbattle.maxenergy))
-    # # print("DPS: %.2f    EPS gain: %.2f" % (
-    # #     (atkr_postbattle.maxHP-atkr_postbattle.HP)/lengthsecs, dfdr_postbattle.total_energy_gained/lengthsecs))
-    print("time: %.2f seconds" % lengthsecs)
-    # import ips; ips.ips()

@@ -1,0 +1,36 @@
+# The function player_AI_choose(wd, t) chooses which move to use depending on the situation.
+    # Here is the decision flow:
+    # IF dodgeCMovesIfFree == True and the enemy has announced a cmove:
+        ## IF I can kill enemy before being hit by defender's cmove
+            ### IF I can kill it with fmove spam
+                #### OUTCOME 1: fmove spam until dfdr dies
+            ### ELIF I can kill it with cmove, + fmove spam:
+                #### OUTCOME 2: cmove, then fmove spam until dfdr dies
+        ## ELIF it's already in the dodge window
+            ### OUTCOME 3: dodge (even if you have already dodged. dodging takes 500ms and the window is 700ms)
+            ### it takes 1 or 2 dodges to do it. With 66% probability you need two dodges.
+            ### If after your dodge is over, you are still in the dodge window, then you roll another dodge.
+            ### If dodge_success_probability < threshhold, don't even bother dodging.
+            ### threshhold = 40% for solo raids, 65% for team raids.
+            ### dodge_success_probability is the probability of making a dodge if you are free to dodge.
+            ### So the actual dodge probability is lower than dodge_success_probability,
+            ### because sometimes you are busy during dodge time.
+            ### dodge_success_probability is based on how quick the enemy's atk is (damageWindowStart):
+            ### dodge_success_probability = 0.2 + ((1.0-0.2)/(3000-1800))*(dWS - 1800)
+            ### the formula is approximate based on my own personal dodge success.
+        ## ELIF I need to wait or I will miss my dodge AND it's past cmovereactiontime:
+            ### IF I can still fit in an fmove
+                #### OUTCOME 4: Use fmove
+            #### ELSE
+                #### OUTCOME 5: wait until dodge window begins + a short reaction time
+        ## ELSE (aka if it's before cmovereactiontime):
+            ### OUTCOME 6: just attack as usual
+    # ELSE, I will attack:
+        ## IF I do not have enough energy for a cmove:
+            ### OUTCOME 7: use fmove
+        ## ELIF fmove spam would kill before my cmove comes out,
+            ### OUTCOME 8: fmove spam
+        ## ELSE: I have enough energy for a cmove, so:
+            ### OUTCOME 9: use cmove
+        
+        ##MAYBE TO ADD LATER: ELIF cmove would be very overkill and I have at least 35% HP remaining, use fmove
