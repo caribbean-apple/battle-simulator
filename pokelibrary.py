@@ -32,7 +32,7 @@ dirOfGM = os.path.join(dirOfPokeLib, 'GAME_MASTER\\')
 ATKR_MAX_ENERGY = 100
 DFDR_MAX_ENERGY = 100
 
-ARENA_ENTRY_LAG_MS = 7000 # lag to enter a raid or gym battle
+ARENA_ENTRY_LAG_MS = 3000 # lag to enter a raid or gym battle
 TIMELIMIT_GYM_MS_IDEAL = 100000 # timer for the battle in ms
 TIMELIMIT_NORMALRAID_MS_IDEAL = 180000 # timer for raid in ms 
 TIMELIMIT_LEGENDARYRAID_MS_IDEAL = 300000 # timer for legendary raid
