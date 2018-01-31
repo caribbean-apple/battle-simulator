@@ -1,26 +1,3 @@
-graphical = False
-showlog = True
-
-class graphicallog:
-    def __init__(self):
-        self.l = []
-        self.capacity = 8
-
-    def prnt(self):
-        print()
-        if len(self.l) < self.capacity:
-            print("\n"*(self.capacity - len(self.l)))
-        for msg in self.l:
-            print(msg)
-
-    def add(self, msg):
-        if len(self.l) < self.capacity:
-            self.l += [msg]
-        else:
-            self.l = self.l[1:] + [msg]
-
-
-
 
 
 def printgraphicalstart():
@@ -118,9 +95,6 @@ def printgraphicalstatus(atkr, dfdr):
 
     atkrname = atkr.name.upper() + " (attacker)"
     dfdr_name = dfdr.name.upper() + " (defender)"
-    #dfdr may go past 100E, then just show it as full with 100:
-    dfdrenergy = min(dfdr.energy, 100)
-    # ^this does NOT actually change dfdr's energy, just the visuals.
 
     currentHPBarCount1 = int(math.ceil(barCount*(atkr.HP/atkr.maxHP)))
     currentEBarCount1 = int(math.ceil(barCount*(atkr.energy/atkr.maxenergy)))
@@ -144,63 +118,55 @@ def printgraphicalstatus(atkr, dfdr):
         " "*(barCount - currentEBarCount1) + "|" + ("%3dE" % atkr.energy))
 
 
+def generate_glog(wd):
 
-def update_logs(wd, t, eventtype, pkmn_usedAtk=None, pkmn_hurt=None,
-    damage=None, hurtEnergyGain=None, move_hurt_by=None):
+    return [update_logs(wd, e) for e in wd.elog]
+
+
+def update_logs(wd, e):
     
     msg2 = ""
     
-    if eventtype == "use_fmove":
+    if "announce" in e.name:
         # takes in pkmn_usedAtk
         msg = ("%.2f: %s used %s!" % (
-            (wd.timelimit_ms - t)/1000, pkmn_usedAtk.name, pkmn_usedAtk.fmove.name))
-        msg = "%-45s +  %d HP / +%3d E" % (msg, 0, pkmn_usedAtk.fmove.energydelta)
-        
-    elif eventtype == "use_cmove":
-        # takes in pkmn_usedAtk
-        msg = ("%.2f: %s used %s!" % (
-            (wd.timelimit_ms - t)/1000, pkmn_usedAtk.name, pkmn_usedAtk.cmove.name))
-        msg = "%-45s +  %d HP / %3d E" % (msg, 0, pkmn_usedAtk.cmove.energydelta)
+            (wd.timelimit_ms - e.t)/1000, e.pkmn_usedAtk.name, e.move_hurt_by.name))
 
-    elif eventtype == "hurt":
+
+    elif "Hurt" in e.name:
         # takes in pkmn_usedAtk, pkmn_hurt, hurtEnergyGain, move_hurt_by
         msg = "%.2f: %s was hurt by %s!" % (
-            (wd.timelimit_ms - t)/1000, pkmn_hurt.name, move_hurt_by.name)
+            (wd.timelimit_ms - e.t)/1000, e.pkmn_hurt.name, e.move_hurt_by.name)
 
-        msg = "%-45s -%3d HP / +%3d E" % (msg, damage, hurtEnergyGain)
-        timelen = len("%.2f" % ((wd.timelimit_ms - t)/1000)) + 2
-        if move_hurt_by.mtype == 'f':
+        msg = "%-45s -%3d HP / +%3d E" % (msg, e.dmg, e.dmg//2)
+        timelen = len("%.2f" % ((wd.timelimit_ms - e.t)/1000)) + 2
+        if e.move_hurt_by.mtype == 'f':
             msg2 = "\n" + " "*timelen + "%s gained %d energy." % (
-                pkmn_usedAtk.name, move_hurt_by.energydelta)
-        elif move_hurt_by.mtype == 'c':
+                e.pkmn_usedAtk.name, e.move_hurt_by.energydelta)
+        elif e.move_hurt_by.mtype == 'c':
             msg2 = "\n" + " "*timelen + "%s used up %d energy." % (
-                pkmn_usedAtk.name, move_hurt_by.energydelta)
+                e.pkmn_usedAtk.name, -e.move_hurt_by.energydelta)
 
-    elif eventtype == "dodge":
+    elif e.name == "dodge":
         # takes in pkmn_usedAtk, pkmn_hurt
         msg = "%.2f: %s dodged %s!" % (
-            (wd.timelimit_ms - t)/1000, pkmn_hurt.name, pkmn_usedAtk.cmove.name)
+            (wd.timelimit_ms - e.t)/1000, e.pkmn_hurt.name, e.move_hurt_by.name)
 
-    elif eventtype == "background_dmg":
+    elif e.name == "backgroundDmg":
         # takes in pkmn_hurt
         msg = "%.2f: %s took background dmg!" % (
-            (timelimit_ms - t)/1000, pkmn_hurt.name)
-        msg = "%-45s -%3d HP / +%3d E" % (msg, damage, hurtEnergyGain)
+            (timelimit_ms - e.t)/1000, e.pkmn_hurt.name)
+        msg = "%-45s -%3d HP / +%3d E" % (msg, e.dmg, e.dmg//2)
 
-    atkrHP, atkrEnergy = str(int(wd.atkr.HP)), str(int(wd.atkr.energy))
-    dfdrHP, dfdrEnergy = str(int(wd.dfdr.HP)), str(int(wd.dfdr.energy))
+    atkrHP, atkrEnergy = str(wd.atkr.HP), str(wd.atkr.energy)
+    dfdrHP, dfdrEnergy = str(wd.dfdr.HP), str(wd.dfdr.energy)
 
     msg += ( " " * (66-len(msg)) 
         + atkrHP + " "*(4 - len(atkrHP))
         + "| " + atkrEnergy + " "*(6-len(atkrEnergy)) 
         + " "*3 + dfdrHP + " "*(4 - len(dfdrHP))
-        + "| %-3d"%wd.dfdr.energy + " "*4 + "%6d" % t )
+        + "| %-3d"%wd.dfdr.energy + " "*4 + "%6d" % e.t )
 
     msg = msg + msg2
 
-    if showlog:
-        print(msg)
-        return
-    
-    if graphical: 
-        wd.glog.add(msg)
+    return msg

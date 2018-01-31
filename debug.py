@@ -1,5 +1,5 @@
 from battlesimlib import *
-
+from ui import *
 
 
 
@@ -24,8 +24,21 @@ def debug():
     debug_world.dodgeCMovesIfFree = True
     debug_world.randomness = True
     debug_world.weather = 'CLOUDY'
+
+    for n in range(100):
+        print("simulation:", n+1)
+        debug_world.atkr.reset_stats()
+        debug_world.dfdr.reset_stats()
+        debug_world.elog = []
+        debug_world.tline = timeline()
+        winner, length_ms = raid_1v1_battle(debug_world)
+        
     
-    winner, length_ms = raid_1v1_battle(debug_world)
+
+    if 0:
+        for msg in generate_glog(debug_world):
+            print(msg)
+        print()
     
     if winner == -1:
         print("It was a tie! Who knows what happens now.")

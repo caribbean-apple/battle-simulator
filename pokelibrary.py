@@ -167,7 +167,9 @@ class pokemon:
     
     def reset_stats(self):
         self.HP = self.maxHP
-        self.energy = self.maxenergy        
+        self.energy = self.maxenergy
+        self.nonbackground_damage_taken = 0
+        self.total_energy_gained = 0
 
     def printstatus(self):
         print("=%s STATUS=" % self.name)
