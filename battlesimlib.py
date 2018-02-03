@@ -602,10 +602,10 @@ def battle(wd):
         wd.elog.append(this_event)
 
         # for debug
-        print("Post-Processing:", t, this_event.name,
-             this_event.pkmn_usedAtk.name if this_event.pkmn_usedAtk else "",
-             this_event.move_hurt_by.name if this_event.move_hurt_by else "",
-              "pkmn_hurt HP:" + str(this_event.pkmn_hurt.HP) if this_event.pkmn_hurt else "")
+##        print("Post-Processing:", t, this_event.name,
+##             this_event.pkmn_usedAtk.name if this_event.pkmn_usedAtk else "",
+##             this_event.move_hurt_by.name if this_event.move_hurt_by else "",
+##              "pkmn_hurt HP:" + str(this_event.pkmn_hurt.HP) if this_event.pkmn_hurt else "")
         
         # Make sure to finish all events at time t before checking battle status
         if len(tline.lst) > 0 and t == tline.lst[0].t:
