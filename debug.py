@@ -1,6 +1,6 @@
 from battlesimlib import *
 from ui import *
-
+import copy
 
 
 
@@ -12,26 +12,35 @@ def debug():
     debug_world.starting_t_ms = TIMELIMIT_GYM_MS
     debug_world.new_battle_bool = True
 
-    # assign atkr and dfdr
-    debug_world.atkr = pokemon(debug_world.speciesdata[getPokedexNumber('machamp', debug_world.speciesdata)], [15,15,15],
-                               CPM(40, debug_world.CPMultiplier), 
-                    debug_world.fmovedata['counter'], debug_world.cmovedata['dynamic punch'], poketype="player")
-    debug_world.dfdr = pokemon(debug_world.speciesdata[getPokedexNumber('blissey', debug_world.speciesdata)], [15,15,15],
-                               CPM(40, debug_world.CPMultiplier), 
-                    debug_world.fmovedata['pound'], debug_world.cmovedata['hyper beam'], poketype="gym_defender")
+    # assign (single) atkr and dfdr
+    atkr = pokemon(debug_world.speciesdata[getPokedexNumber('machamp', debug_world.speciesdata)], [15,15,15],
+                    CPM(40, debug_world.CPMultiplier), debug_world.fmovedata['counter'],
+                    debug_world.cmovedata['dynamic punch'], poketype="player")
+    atkr2 = pokemon(debug_world.speciesdata[getPokedexNumber('dragonite', debug_world.speciesdata)], [15,15,15],
+                    CPM(40, debug_world.CPMultiplier), debug_world.fmovedata['dragon tail'],
+                    debug_world.cmovedata['dragon claw'], poketype="player")
+    
+    dfdr = pokemon(debug_world.speciesdata[getPokedexNumber('blissey', debug_world.speciesdata)], [15,15,15],
+                    CPM(40, debug_world.CPMultiplier), debug_world.fmovedata['pound'], 
+                    debug_world.cmovedata['dazzling gleam'], poketype="raid_boss", raid_tier=3)
+    
+    debug_world.atkr_parties.append(party([copy.deepcopy(atkr) for _ in range(6)]))
+    
+    debug_world.atkr_parties.append(party([copy.deepcopy(atkr2) for _ in range(6)]))
+    
+    debug_world.dfdr_party.add(dfdr)
  
-    debug_world.battle_type = 'gym'
-    debug_world.dodgeCMovesIfFree = True
+    debug_world.battle_type = 'raid'
+    debug_world.raid_tier = 3
+    debug_world.dodgeCMovesIfFree = False
     debug_world.randomness = True
     debug_world.weather = 'CLOUDY'
 
-    for n in range(100):
-        print("simulation:", n+1)
-        debug_world.atkr.reset_stats()
-        debug_world.dfdr.reset_stats()
-        debug_world.elog = []
-        debug_world.tline = timeline()
-        winner, length_ms = raid_1v1_battle(debug_world)
+    for n in range(1):
+        print("simulation #", n+1)
+        debug_world.reset_stats()
+        winner = battle(debug_world)
+        length_ms = debug_world.battle_lengths[0]
         
     
 
@@ -43,18 +52,25 @@ def debug():
     if winner == -1:
         print("It was a tie! Who knows what happens now.")
     elif winner == 1:
-        print("%s won!" % debug_world.atkr.name)
+        print("Attacker won!")
     elif winner == 2:
-        print("%s won!" % debug_world.dfdr.name)
+        print("Defender won!")
     lengthsecs = length_ms/1000
-    print("Ending Stats:")
-    debug_world.atkr.printstatus()
-    print("DPS: %.2f    EPS gain: %.2f" % (
-            (debug_world.dfdr.maxHP - debug_world.dfdr.HP)/lengthsecs, 
-            debug_world.atkr.total_energy_gained/lengthsecs)) 
-    print()
-    debug_world.dfdr.printstatus()
+    print("Ending Stats:\n")
+    
     print("time: %.2f seconds" % lengthsecs)
+    
+    debug_world.dfdr_party.active_pkm.printstatus()
+    print()
+
+    for p in debug_world.atkr_parties:
+        print("Team",p,"TDO:",p.tdo)
+        for atkr in p:
+            atkr.printstatus()
+            print("DPS: %.2f    EPS gain: %.2f" % (p.tdo/lengthsecs,
+                                                   atkr.total_energy_gained/lengthsecs)) 
+    
+    
 
 
 

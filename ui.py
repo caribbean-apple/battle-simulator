@@ -1,3 +1,14 @@
+'''
+TODO: Basically update everything that takes the event log since multi-attacker
+        mode has just been implemented.
+
+'''
+
+def invalidInputError(invalidstr):
+    raise Exception("\nTHAT'S AN INVALID INPUT.\n" +
+        "Did you even NOTICE that you had entered '%s'???!??!" % 
+        invalidstr)
+
 
 
 def printgraphicalstart():
@@ -119,8 +130,12 @@ def printgraphicalstatus(atkr, dfdr):
 
 
 def generate_glog(wd):
-
-    return [update_logs(wd, e) for e in wd.elog]
+    glog = []
+    for e in wd.elog:
+        m = update_logs(wd, e)
+        if m:
+            glog.append(m)
+    return glog
 
 
 def update_logs(wd, e):
@@ -158,14 +173,30 @@ def update_logs(wd, e):
             (timelimit_ms - e.t)/1000, e.pkmn_hurt.name)
         msg = "%-45s -%3d HP / +%3d E" % (msg, e.dmg, e.dmg//2)
 
-    atkrHP, atkrEnergy = str(wd.atkr.HP), str(wd.atkr.energy)
-    dfdrHP, dfdrEnergy = str(wd.dfdr.HP), str(wd.dfdr.energy)
+    elif "Enter" in e.name:
+        msg = "%s entered the field" % e.pkmn_usedAtk.name
+
+    else:
+        return ""
+
+    if e.pkmn_usedAtk.poketype == "player":
+        atkr, dfdr = e.pkmn_usedAtk, e.pkmn_hurt
+    else:
+        atkr, dfdr = e.pkmn_hurt, e.pkmn_usedAtk
+
+    if not atkr:
+        atkr = dfdr
+    if not dfdr:
+        dfdr = atkr
+        
+    atkrHP, atkrEnergy = str(atkr.HP), str(atkr.energy)
+    dfdrHP, dfdrEnergy = str(dfdr.HP), str(dfdr.energy)
 
     msg += ( " " * (66-len(msg)) 
         + atkrHP + " "*(4 - len(atkrHP))
         + "| " + atkrEnergy + " "*(6-len(atkrEnergy)) 
         + " "*3 + dfdrHP + " "*(4 - len(dfdrHP))
-        + "| %-3d"%wd.dfdr.energy + " "*4 + "%6d" % e.t )
+        + "| %-3d"%dfdr.energy + " "*4 + "%6d" % e.t )
 
     msg = msg + msg2
 

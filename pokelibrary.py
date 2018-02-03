@@ -63,7 +63,7 @@ raids_list = [None,
 # raid boss CPM and HP for boss levels 1-5:
 raidboss_CPM = [None, 0.61, 0.67, 0.7300000190734863, 0.7900000214576721, 0.7900000214576721]
 raidboss_HP = [None, 600, 1800, 3000, 7500, 12500]
-raidboss_IVs = [15, 15, None] # Order is ATK, DEF, STA. STA IV is not used for raid bosses. 
+raidboss_IVs = [15, 15, 0] # Order is ATK, DEF, STA. STA IV is not used for raid bosses. 
 # turn it into a dict so that you can write raidBossDict['entei']['CPM']:
 raidboss_dict = {}
 for raidlvl in range(1,len(raids_list)):
@@ -112,7 +112,7 @@ class pokemonspecies:
         self.legacycmnames = []
 
 class pokemon:
-    def __init__(self, species, IVs, CPM, fmove, cmove, poketype):
+    def __init__(self, species, IVs, CPM, fmove, cmove, poketype, raid_tier=1):
         self.species = species
         self.fmove = fmove
         self.cmove = cmove
@@ -151,23 +151,31 @@ class pokemon:
         elif poketype == 'raid_boss':
             # everything is diff from poketype == player:
             self.IVs = raidboss_IVs
-            try: self.CPM = raidboss_dict[self.name]['CPM']                
-            except KeyError: raise Exception("No raidboss with that name exists. Ho-oh is ho_oh btw.")
-            self.stats = ( [(species.bstats[i]+self.IVs[i])*self.CPM for i in [0,1]] 
-                + [(raidboss_dict[self.name]['HP'])] )
+            
+##            try: self.CPM = raidboss_dict[self.name]['CPM']                
+##            except KeyError: raise Exception("No raidboss with that name exists. Ho-oh is ho_oh btw.")
+##            self.stats = ( [(species.bstats[i]+self.IVs[i])*self.CPM for i in [0,1]] 
+##                + [(raidboss_dict[self.name]['HP'])] )
+            
+            # To support arbitrary boss, just need the boss's CPM
+            self.CPM = raidboss_CPM[raid_tier]
+            self.stats = [(species.bstats[i]+self.IVs[i])*self.CPM for i in range(3)] 
+            self.stats[2] = raidboss_HP[raid_tier]          
             self.ATK = self.stats[0]
             self.DEF = self.stats[1]
             self.STA = self.stats[2]
             self.CP = max(10, math.floor(
                 (species.base_ATK+self.IVs[0])*math.sqrt((species.base_DEF+self.IVs[1])*self.STA)/10))
-            self.maxHP = self.STA
+            self.maxHP = math.floor(self.STA)
             self.HP = self.maxHP
             self.maxenergy = DFDR_MAX_ENERGY
             self.nonbackground_damage_taken = 0 # counts how much dmg was taken except from backgroundDmg.
+        else:
+            raise Exception("You fool, what is " + str(poketype) + " as a poketype??")
     
     def reset_stats(self):
         self.HP = self.maxHP
-        self.energy = self.maxenergy
+        self.energy = 0
         self.nonbackground_damage_taken = 0
         self.total_energy_gained = 0
 

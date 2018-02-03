@@ -17,15 +17,16 @@ TO DO:
 This only matters for cmoves with large charge time. The announce events should only be added 
 if log options (graphical? showlog?) are on.
 
--Count lag time in youtube videos (how many fmoves per time?). Add an attacker lag with this.
+-dodge_success_probability and dodgeCMovesIfFree should be party- or even invidual pokemon-dependent?
 
--Add a test: do not try to dodge if your HP is more than 1.1x their cmove damage
+-TDO for different teams don't add up to raid boss's HP.
+
+-Count lag time in youtube videos (how many fmoves per time?). Add an attacker lag with this.
 """
 
 # NOTE: currently, there is a (somewhat arbitrary) dodge_success_probability,
-# defined in raid_1v1_battle. 
+# defined in battle(). 
 #
-# If dodge_success_probability < 0.4, the attacker does not even attempt to dodge.
 
 
 # the following 2 variables are now only be taken as inputs to be safe:
@@ -76,6 +77,9 @@ ATKR_SUBSTITUTE_DELAY_MS = ATKR_SUBSTITUTE_DELAY_MS_IDEAL + ATKR_SUBSTITUTE_LAG
 DODGE_FAINT_BUG = True              # the damn dodge glitch. Just celebrated its anniversary
                                     # If set True, to avoid the bug, I will not dodge if I'm within the KO range
 
+MAX_POKEMON_PER_PARTY = 6
+
+
 # subjective parameter used to determine how much damage other players do
 # although 11 is pretty accurate in my experience in NYC and in Munich
 nToBarelyBeatLugia = 11
@@ -87,31 +91,17 @@ vs_lugia_DPS_per_other_player = (lugia_HP/lugia_timelimit_s)/nToBarelyBeatLugia
 
 
 
-def invalidInputError(invalidstr):
-    raise Exception("\nTHAT'S AN INVALID INPUT.\n" +
-        "Did you even NOTICE that you had entered '%s'???!??!" % 
-        invalidstr)
 
-
-def damage(pkmn_usedAtk, pkmn_hurt, move, typeadvantages, weather = 'EXTREME'):
-
-    # calculate damage.
-    STAB = STAB_MULTIPLIER if move.dtype in [pkmn_usedAtk.type1, pkmn_usedAtk.type2] else 1
-    WAB = WAB_MULTIPLIER if move.dtype in WEATHER_BOOSTED_TYPES[weather] else 1
-    typadv1 = typeadvantages[move.dtype][pkmn_hurt.type1]
-    typadv2 = 1 if pkmn_hurt.type2=="none" else typeadvantages[move.dtype][pkmn_hurt.type2]    
-    mult = STAB * WAB * typadv1 * typadv2
-    
-    dmg = math.ceil(0.5*pkmn_usedAtk.ATK*move.power*mult/pkmn_hurt.DEF)
-    
-    return dmg
-
+'''
+    CLASSES
+'''
 
 class event:
     # events sit on the timeline and carry instructions / information
     # about what they should change or do.
     #
     # TYPE OF EVENT
+    # pkmnEnter: A pokemon (atkr or dfdr) has joined the battle! It can be atkr or dfdr
     # atkrFree: Attacking pokemon is free to perform another action right now.
     #           If it's an fmove the atkr gains energy at this time
     #           If it's a  cmove the atks might gain energy now, depending on charge time
@@ -129,8 +119,8 @@ class event:
     # announce: Announce a message to the log at a particular time. This is only used for 
     #           attack announcements that are not made at the same time they were decided.
     #           takes (name, t)
-    # dodgeWindowOpen: Happens at DWS - DODGEWINDOW_LENGTH_MS
     # dodge:    Attacker performs a dodge.
+    # dodge_failed: Not every dodge will be sucessful.
     # backgroundDmg: The dfdr takes background dmg to emulate a team of attackers.
     #           takes (bgd_dmg_time, background_dmg_per_1000ms)
 
@@ -160,10 +150,14 @@ class event:
     def __eq__(self, other): return self.t == other.t
 
 
-
 class timeline:
+    # A ordered queue to manage events
+    
     def __init__(self):
         self.lst = []
+
+    def __iter__(self):
+        return iter(self.lst)
 
     def add(self, e):
         # add the event at the proper (sorted) spot.
@@ -180,18 +174,50 @@ class timeline:
         print()
 
 
-            
-class pdiff:
-    def __init__(self):
-        self.HPdelta = 0
-        self.energydelta = 0 # can be positive or negative!!
-    def add(self, pdiff2):
-        self.HPdelta += pdiff2.HPdelta
-        self.energydelta += pdiff2.energydelta
-        return self
-    def prnt(self):
-        print("HPdelta: %d\nenergydelta: %d" % 
-            (self.HPdelta, self.energydelta))
+class party:
+    # A collection of at most MAX_POKEMON_PER_PARTY Pokemon.
+
+    def __init__(self, pkm_list=[]):
+        self.lst = []
+        self.active_pkm = None
+        for pkm in pkm_list:
+            self.add(pkm)
+        self.tdo = 0
+
+    def __iter__(self):
+        # So you don't have to write "for pkm in some_party.lst:"
+        # Just "for pkm in some_party: " will do
+        return iter(self.lst)
+
+    def add(self, pkm):
+        # Add pokemon to the party
+        if len(self.lst) < MAX_POKEMON_PER_PARTY:
+            self.lst.append(pkm)
+            pkm.parent_party = self
+            if not self.active_pkm:
+                self.active_pkm = pkm
+        else:
+            raise Exception("Failed to add new Pokemon: Exceeding max party size")
+
+    def next_pkmn_up(self):
+        # When active Pokemon (active_pkm) faints, this function is called
+        # It puts the first alive Pokemon on the field
+
+        for pkm in self:
+            if pkm.HP > 0:
+                self.active_pkm = pkm
+                return
+        raise StopIteration("Party exhausted")
+
+    def alive(self):
+        # If any of the Pokemon in this party is still alive, returns True. 
+        # Otherwise returns False
+        for pkm in self:
+            if pkm.HP > 0:
+                return True
+        return False
+
+
 
 
 class world:
@@ -205,24 +231,25 @@ class world:
     CPMultiplier = None
     typeadvantages = None
 
-    # Part 2: Pokemon settings
-    atkr = None
+    # Part 2: Pokemon settings  
+    atkr_parties = []       # For multi-player mode
     dodge_success_probability = 0
     dodgeCMovesIfFree = False
-    atkrs = []
-    teams = [] # To be implemented for mutli-player mode
-    dfdr = None
+    
+    dfdr_party = party()    # Simulate a gym of six defenders
     randomness = False
     opportunityNum = 0
 
     # Part 3: Battle parameters variables
     battle_type = None
-    new_battle_bool = None
+    raid_tier = 0
+    new_battle_bool = True
     nOtherPlayers = 0
     timelimit_ms = 0
     tline = timeline()
     starting_t_ms = -1
     weather = 'EXTREME'
+    battle_lengths = []
     elog = []
 
     def __init__(self, **kwargs):
@@ -236,31 +263,63 @@ class world:
     def importAllGM(self):
         self.fmovedata, self.cmovedata, self.speciesdata, self.CPMultiplier, self.typeadvantages = importAllGM()
 
+    def reset_stats(self):
+        for p in self.atkr_parties:
+            for pkm in p:
+                pkm.reset_stats()
+        for pkm in self.dfdr_party:
+            pkm.reset_stats()
+        self.elog = []
+        self.tline = timeline()
 
 
 
-def atkr_use_move(pkm, tline, t, move, dmg):
-    tline.add(event("announce", t, pkmn_usedAtk=pkm, move_hurt_by=move))
-    tline.add(event("atkrEnergyDelta", t + move.dws, energy_delta=move.energydelta))
-    tline.add(event("dfdrHurt", t + move.dws, pkmn_usedAtk = pkm, dmg=dmg, move_hurt_by=move))
-    tline.add(event("atkrFree", t + move.duration))
+'''
+    FUNCTIONS
+'''
 
-def dfdr_use_move(pkm, tline, t, move, dmg):
-    tline.add(event("announce", t, pkmn_usedAtk=pkm, move_hurt_by=move))
-    tline.add(event("dfdrEnergyDelta", t + move.dws, energy_delta=move.energydelta))
-    tline.add(event("atkrHurt", t + move.dws, pkmn_usedAtk = pkm, dmg=dmg, move_hurt_by=move))
+
+def damage(pkmn_usedAtk, pkmn_hurt, move, typeadvantages, weather='EXTREME'):
+    # calculate damage.
+    STAB = STAB_MULTIPLIER if move.dtype in [pkmn_usedAtk.type1, pkmn_usedAtk.type2] else 1
+    WAB = WAB_MULTIPLIER if move.dtype in WEATHER_BOOSTED_TYPES[weather] else 1
+    typadv1 = typeadvantages[move.dtype][pkmn_hurt.type1]
+    typadv2 = 1 if pkmn_hurt.type2=="none" else typeadvantages[move.dtype][pkmn_hurt.type2]    
+    mult = STAB * WAB * typadv1 * typadv2
+    
+    dmg = math.ceil(0.5*pkmn_usedAtk.ATK*move.power*mult/pkmn_hurt.DEF)
+    return dmg
+
+def atkr_use_move(pkm, pkm_hurt, move, wd, t):
+
+    dmg = damage(pkm, pkm_hurt, move, wd.typeadvantages, wd.weather)
+    wd.tline.add(event("announce", t, pkmn_usedAtk=pkm, move_hurt_by=move))
+    wd.tline.add(event("atkrEnergyDelta", t + move.dws, pkmn_usedAtk=pkm, energy_delta=move.energydelta))
+    wd.tline.add(event("dfdrHurt", t + move.dws, pkmn_usedAtk=pkm, pkmn_hurt=pkm_hurt, dmg=dmg, move_hurt_by=move))
+    wd.tline.add(event("atkrFree", t + move.duration, pkmn_usedAtk=pkm))
+
+def dfdr_use_move(pkm, move, wd, t):
+       
+    wd.tline.add(event("announce", t, pkmn_usedAtk=pkm, move_hurt_by=move))
+    wd.tline.add(event("dfdrEnergyDelta", t + move.dws, pkmn_usedAtk=pkm, energy_delta=move.energydelta))
+    
+    # Need to make damage to EVERY attacker on the field (multi-player mode)
+    for p in wd.atkr_parties:
+        dmg = damage(pkm, p.active_pkm, move, wd.typeadvantages, wd.weather)
+        wd.tline.add(event("atkrHurt", t + move.dws, pkmn_usedAtk=pkm,
+                           pkmn_hurt=p.active_pkm, dmg=dmg, move_hurt_by=move))
+    
     # defender makes decision at the beginning of the previous move
-    tline.add(event("dfdrFree", t, current_move = move)) 
+    wd.tline.add(event("dfdrFree", t, current_move = move)) 
 
 
 
-def player_AI_choose(wd, t):
+def player_AI_choose(wd, atkr, t):
     # This function is the strategy of the attacker.
     # It directly manipulates the timeline object by inserting events.
     # for now, atkr will always be the player's pokemon.
     
-    atkr = wd.atkr
-    dfdr = wd.dfdr
+    dfdr = wd.dfdr_party.active_pkm
     tline = wd.tline
 
     atkr_fDmg = damage(atkr, dfdr, atkr.fmove, wd.typeadvantages, wd.weather)
@@ -284,8 +343,7 @@ def player_AI_choose(wd, t):
                 atkr_dmg_done_before_hurt = nFmovesAtkrCanFit * atkr_fDmg
                 if atkr_dmg_done_before_hurt >= dfdr.HP: 
                     # ## OUTCOME 1: fmove spam until dfdr dies
-                    atkr_use_move(atkr, tline, t, atkr.fmove, atkr_fDmg)
-                    
+                    atkr_use_move(atkr, dfdr, atkr.fmove, wd, t)         
                     return
 
                 # can I fit in a cmove?
@@ -295,7 +353,7 @@ def player_AI_choose(wd, t):
                     ## OUTCOME 2: cmove, then fmove spam (to be decided in the next function call). 
                     # *UPDATE* after battle UI rework, you can tap the button and use cmove right away
                     # add the cmove to tline
-                    atkr_use_move(atkr, tline, t, atkr.cmove, atkr_cDmg)
+                    atkr_use_move(atkr, dfdr, atkr.cmove, wd, t)
                     return
             
             # at this point, if I could have finished him off before hurt, the function has already returned.
@@ -309,12 +367,10 @@ def player_AI_choose(wd, t):
                 else: 
                     wd.elog.append(event("dodge_failed", t, pkmn_usedAtk=atkr))
 
-
                 # attacker cannot move until dodge is over.
                 # dodge 1 or 2 times, with 66% chance that it's 2 times.
                 tFree = t + DODGE_COOLDOWN_MS * random.choice([1, 2, 2])
-                tline.add(event("atkrFree", tFree))
-                
+                tline.add(event("atkrFree", tFree, pkmn_usedAtk=atkr))
                 return
             
 
@@ -322,44 +378,35 @@ def player_AI_choose(wd, t):
     # Other outcomes have already returned.
     if atkr.energy + atkr.cmove.energydelta < 0:
         ## OUTCOME 6/7: use fmove
-        atkr_use_move(atkr, tline, t, atkr.fmove, atkr_fDmg)
-        
+        atkr_use_move(atkr, dfdr, atkr.fmove, wd, t) 
         return
 
     # at this point, atkr has enough energy to use a cmove. Can I finish dfdr off faster
     # with fmove spam than with cmove?
-
     nFmovesAtkrCanFit = 1 + (atkr.cmove.dws + TAP_TIMING_MS - atkr.fmove.dws)//atkr.fmove.duration
     atkr_dmg_done_before_cmovedws = nFmovesAtkrCanFit * atkr_fDmg
     if atkr_dmg_done_before_cmovedws >= dfdr.HP: 
         # ## OUTCOME 8: fmove spam until dfdr dies
-        atkr_use_move(atkr, tline, t, atkr.fmove, atkr_fDmg)
-        
+        atkr_use_move(atkr, dfdr, atkr.fmove, wd, t)      
         return
     else:
-
         ## OUTCOME 9: use cmove
-        atkr_use_move(atkr, tline, t, atkr.cmove, atkr_cDmg)
-
+        atkr_use_move(atkr, dfdr, atkr.cmove, wd, t)
         return
 
-    print("YOU SHOULD NEVER SEE THIS TEXT")
-    sys.exit(1)
 
 
 
 def gymdfdr_AI_choose(wd, t, current_move):
-    # in this function, atkr is always the attacker (player).
-    # this is called when it is the defender's turn to start an atk,
+    
+    # this function is called when it is the defender's turn to start an atk,
     # it chooses what to use NEXT (so not at time=t, but at time=t+duration+delay)
     # based on the energy it WILL have AFTER the current move.
 
-    atkr = wd.atkr
-    dfdr = wd.dfdr
+    dfdr = wd.dfdr_party.active_pkm
     tline = wd.tline
  
     projected_dfdr_energy = dfdr.energy + current_move.energydelta
-
     # decide fmove or move to use next.
     next_move = dfdr.fmove
     if projected_dfdr_energy + dfdr.cmove.energydelta >= 0:
@@ -368,22 +415,14 @@ def gymdfdr_AI_choose(wd, t, current_move):
             if random.random()<0.5:
                 next_move = dfdr.cmove
         else:
-            # print("opportunity = %d" % opportunityNum)
             if wd.opportunityNum == 1:
                 next_move = dfdr.cmove
             wd.opportunityNum = 1 - wd.opportunityNum # switches 0 to 1 and vice versa,
                                                 # causing cmove to be used every other opportunity.
-    # calculate damage
-    dmg = damage(dfdr, atkr, next_move, wd.typeadvantages, wd.weather)
-
     # choose when to begin the next move
-    if not wd.randomness:
-        t_next_move = t + current_move.duration + 2000
-    else:
-        t_next_move = t + current_move.duration + random.randint(1500,2500)
+    t_next_move = t + current_move.duration + random.randint(1500,2500) if wd.randomness else 2000
 
-    # finally, pend events to timeline
-    dfdr_use_move(dfdr, tline, t_next_move, next_move, dmg)
+    dfdr_use_move(dfdr, next_move, wd, t_next_move)
 
 
 
@@ -429,35 +468,48 @@ def otherplayers_DPS_profile(t):
 
 
 
-def raid_1v1_battle(wd):
-    # This function faces one pkmn against one pkmn.
-    # this function can start a new battle or continue an existing one after a pokemon died,
-    # depending on whether new_battle_bool = True. 
 
+def initial_dfdr_events(wd):
+    # add the starting times of atkr(s) and dfdr.
+
+    dfdr = wd.dfdr_party.active_pkm
+    tline = wd.tline
+    tline.add(event("dfdrEnter", 0, pkmn_usedAtk=dfdr))
+    for a_party in wd.atkr_parties:
+        atkr = a_party.active_pkm
+        dfdr_fDmg = damage(dfdr, atkr, dfdr.fmove, wd.typeadvantages, wd.weather)
+        tline.add(event("atkrHurt", 1000 + dfdr.fmove.dws, pkmn_usedAtk=dfdr, pkmn_hurt=atkr,
+                        dmg=dfdr_fDmg, move_hurt_by=dfdr.fmove))
+        tline.add(event("atkrHurt", 2000 + dfdr.fmove.dws, pkmn_usedAtk=dfdr, pkmn_hurt=atkr,
+                        dmg=dfdr_fDmg, move_hurt_by=dfdr.fmove))
+    tline.add(event("dfdrEnergyDelta", 1000 + dfdr.fmove.dws, pkmn_usedAtk=dfdr, energy_delta=dfdr.fmove.energydelta))
+    tline.add(event("dfdrFree",        2000, current_move = dfdr.fmove))
+    tline.add(event("dfdrEnergyDelta", 2000 + dfdr.fmove.dws, pkmn_usedAtk=dfdr, energy_delta=dfdr.fmove.energydelta))
+    dfdr.nonbackground_damage_taken = 0
+    
+
+
+def battle(wd):
+    # This function is the core that controls the simulation.
+    
+    # This function can start a new battle or continue an existing one,
+    # depending on whether new_battle_bool = True. 
     # if "new_battle_bool", it will start from after GO! disappears, so dfdr will do the many starting fmoves.
     # in this case one must pass:
     #   -time_remaining_ms as the time left in the battle
-    #   -tline as the existing timeline... 
-    #       -ALREADY WITH THE LOSER'S EVENTS REMOVED!!
-    #       -ALREADY WITH THE NEXT POKEMON's NEXT EVENT INCLUDED!!
     # time_remaining_ms defaults to -1 because it will always be set in a new_battle_bool, based on battle_type.
 
-    atkr = wd.atkr
-    dfdr = wd.dfdr
+    dfdr = wd.dfdr_party.active_pkm
     tline = wd.tline
 
     if wd.new_battle_bool:
         t = 0
-        # add the starting times of atkr and dfdr.
-        tline.add(event("atkrFree", 0))
-        # in the next defender move, which is chosen at beginning of this move.
-        tline.add(event("dfdrEnergyDelta", 1000-1, energy_delta = dfdr.fmove.energydelta))
-        tline.add(event("dfdrFree",        1000, current_move = dfdr.fmove))
-        dfdr_fDmg = damage(dfdr, atkr, dfdr.fmove, wd.typeadvantages, wd.weather)
-        tline.add(event("atkrHurt", 1000 + dfdr.fmove.dws, pkmn_usedAtk = dfdr, dmg = dfdr_fDmg, move_hurt_by = dfdr.fmove))
-        tline.add(event("dfdrEnergyDelta", 2000-1, energy_delta = dfdr.fmove.energydelta))
-        tline.add(event("atkrHurt",2000 + dfdr.fmove.dws, pkmn_usedAtk = dfdr, dmg = dfdr_fDmg, move_hurt_by = dfdr.fmove))
-        dfdr.nonbackground_damage_taken = 0
+        initial_dfdr_events(wd)
+        wd.new_battle_bool = False
+        for p in wd.atkr_parties:
+            atkr = p.active_pkm
+            tline.add(event("atkrEnter", 0, pkmn_usedAtk=atkr))
+            tline.add(event("atkrFree", 0, pkmn_usedAtk=atkr))
     else:
         t = wd.starting_t_ms
         if len(tline.lst)==0 or wd.starting_t_ms==-1:
@@ -466,15 +518,10 @@ def raid_1v1_battle(wd):
 
         
     if wd.battle_type == "raid":
-        wd.timelimit_ms = ( TIMELIMIT_LEGENDARYRAID_MS if raidboss_dict[dfdr.name]["lvl"] == 5
+        wd.timelimit_ms = ( TIMELIMIT_LEGENDARYRAID_MS if wd.raid_tier == 5
             else TIMELIMIT_NORMALRAID_MS )
     elif wd.battle_type == "gym":
         wd.timelimit_ms = TIMELIMIT_GYM_MS
-
-    # these diffs will be modified & then added to the pokemons at once 
-    # all events at this time have been parsed
-    atkrdiff = pdiff()
-    dfdrdiff = pdiff()
 
     # define the dodge success probability linearly, based on:
     # move          dws     dodge probability (guessing based on my experience)
@@ -482,6 +529,7 @@ def raid_1v1_battle(wd):
     # thunderbolt   1800    0.2
     wd.dodge_success_probability = 0.2 + ((1.0-0.2)/(3000-1800))*(dfdr.cmove.dws - 1800)
     wd.dodge_success_probability = max(min(wd.dodge_success_probability, 1),0)
+    wd.dodge_success_probability = 1 # Temp
 
     # Don't give up. Life is hard.
     
@@ -491,100 +539,129 @@ def raid_1v1_battle(wd):
 
     
     # do all the events in order.
-    while atkr.HP > 0 and dfdr.HP > 0 and t < wd.timelimit_ms:
-
+    while any([p.alive() for p in wd.atkr_parties]) and wd.dfdr_party.alive() and t < wd.timelimit_ms:
         # handle first event on tline and remove current event from the timeline so it only gets handled once.
-        t_prev = t
         this_event = tline.pop()
         t = this_event.t
-
+        
         # case 1: a pokemon is free to decide on a move
         if "Free" in this_event.name:
             if "atkr" in this_event.name: # atkrFree
                 # let AI handle this case (more complex)
                 # player_AI_choose will also assign all new events to the timeline.
-                player_AI_choose(wd, t)
+                player_AI_choose(wd, this_event.pkmn_usedAtk, t)
             else: # dfdrFree
                 gymdfdr_AI_choose(wd, t, this_event.current_move)
 
-
         # case 2: a pokemon takes damage
         elif "Hurt" in this_event.name:
+            # Below are two important formulas
             if this_event.dodged:
                 this_event.dmg = max(math.floor(this_event.dmg*(1-dodgeDamageReductionPercent)), 1)
             hurtEnergyGain = math.ceil(this_event.dmg/2)
+            
             # inflict the damage to the pkmn which was attacked
             # also give it the corresponding energy gain
-            if "atkr" in this_event.name:
-                atkrdiff.HPdelta -= this_event.dmg
-                atkrdiff.energydelta += hurtEnergyGain
-                atkr.total_energy_gained += hurtEnergyGain
-                this_event.pkmn_hurt = atkr
-            else: # dfdrHurt
-                dfdrdiff.HPdelta -= this_event.dmg
-                dfdrdiff.energydelta += math.ceil(this_event.dmg/2)
-                dfdr.total_energy_gained += math.ceil(this_event.dmg/2)
-                dfdr.nonbackground_damage_taken += this_event.dmg
-                if dfdr.HP + dfdrdiff.HPdelta <= 0: 
-                    overkill_dmg = -(dfdrdiff.HPdelta + dfdr.HP)
-                    dfdr.nonbackground_damage_taken -= overkill_dmg
-                this_event.pkmn_hurt = dfdr
-            wd.elog.append(this_event)
+            dmg_taker = this_event.pkmn_hurt
+            dmg_taker.HP -= this_event.dmg
+            dmg_taker.energy = min(dmg_taker.energy + hurtEnergyGain, dmg_taker.maxenergy)
+            dmg_taker.total_energy_gained += hurtEnergyGain
 
+            dmg_giver = this_event.pkmn_usedAtk
+            dmg_giver.parent_party.tdo += this_event.dmg
+
+            if "atkr" in this_event.name: # atkrHurt extra handling
+                if dmg_taker.HP <= 0:
+                    dmg_giver.parent_party.tdo += this_pkm.HP
+            else: # dfdrHurt extra handling
+                dmg_taker.nonbackground_damage_taken += this_event.dmg
+                if dmg_taker.HP <= 0: 
+                    dmg_taker.nonbackground_damage_taken += this_pkm.HP
+                    dmg_giver.parent_party.tdo += this_pkm.HP
+                    wd.battle_lengths.append(t)
+        
         # case 3: a pokemon gains/loses energy
         elif "EnergyDelta" in this_event.name:
-            if "atkr" in this_event.name:
-                atkrdiff.energydelta += this_event.energy_delta
-            else: #dfdrEnergyDelta
-                dfdrdiff.energydelta += this_event.energy_delta
+            this_pkm = this_event.pkmn_usedAtk
+            this_pkm.energy = min(this_pkm.energy + this_event.energy_delta, this_pkm.maxenergy)
 
-        # case 4: an attack has to be announced (& was not already announced)
-        # deleted
-
-        # case 5: dfdr (raid boss) takes background dmg to emulate a team of atkrs.
+        # case 4: dfdr (raid boss) takes background dmg to emulate a team of atkrs.
         elif this_event.name == "backgroundDmg":
             if randomness:
                 this_event.dmg = round(this_event.dmg * random.uniform(0.7, 1.3))
             hurtEnergyGain = math.ceil(this_event.dmg/2)
-            dfdrdiff.HPdelta -= this_event.dmg
-            dfdrdiff.energydelta += hurtEnergyGain
             # do not add to total_nonbackground_damage_taken because I do not count backgroundDmg.
             dfdr.total_energy_gained += hurtEnergyGain
             this_event.pkmn_hurt = dfdr
-            wd.elog.append(this_event)
 
-        # case 6: just update the logs at this time.
-        # deleted
 
-        # Make sure to finish all events at time t before applying & resetting pdiffs
+        # Add this event the log
+        wd.elog.append(this_event)
+
+        # for debug
+        print("Post-Processing:", t, this_event.name,
+              this_event.pkmn_usedAtk.name if this_event.pkmn_usedAtk else "",
+              this_event.move_hurt_by.name if this_event.move_hurt_by else "",
+              "pkmn_hurt HP:" + str(this_event.pkmn_hurt.HP) if this_event.pkmn_hurt else "")
+        
+        # Make sure to finish all events at time t before checking battle status
         if len(tline.lst) > 0 and t == tline.lst[0].t:
             continue
-
-        # now all events at time t are done. Apply diffs.
-        atkr.HP += atkrdiff.HPdelta
-        atkr.energy = min(atkr.energy + atkrdiff.energydelta, atkr.maxenergy)
-        dfdr.HP += dfdrdiff.HPdelta
-        dfdr.energy = min(dfdr.energy + dfdrdiff.energydelta, dfdr.maxenergy)
-
-        #reset diffs to 0 in preparation for the next event at a different time
-        atkrdiff = pdiff()
-        dfdrdiff = pdiff()
-
+        else:
+            # Some Pokemon might faint after this round. Handle them
+            
+            # 1. check and manage defender
+            dfdr = wd.dfdr_party.active_pkm
+            if dfdr.HP <= 0: 
+                    dfdr.nonbackground_damage_taken += this_pkm.HP
+                    wd.battle_lengths.append(t)
+                    tline.lst = [e for e in tline if dfdr not in (e.pkmn_usedAtk, e.pkmn_hurt)]
+                    if wd.dfdr_party.alive():
+                        # Next defender in
+                        wd.dfdr_party.next_pkmn_up()
+                        t = 0
+                        wd.tline = timeline()
+                        tline = wd.tline
+                        initial_dfdr_events(wd)
+                        
+            # 2. check and manage attacker(s)
+            for p in wd.atkr_parties:
+                if p.active_pkm.HP <= 0 and p.alive():
+                    # Time to bring the next Pokemon to the field
+                    p.next_pkmn_up()
+                    for e in tline:
+                        if e.pkmn_hurt is atkr:
+                            # Adjust queued damage to new comer
+                            e.pkmn_hurt = p.active_pkm
+                            e.dmg = damage(dfdr, p.active_pkm, e.move_hurt_by, wd.typeadvantages, wd.weather)
+                    tline.lst = [e for e in tline if e.pkmn_usedAtk is not atkr]
+                    tline.add(event("atkrEnter", t + ATKR_SUBSTITUTE_DELAY_MS_IDEAL, pkmn_usedAtk=p.active_pkm))
+                    tline.add(event("atkrFree", t + ATKR_SUBSTITUTE_DELAY_MS_IDEAL + 100, pkmn_usedAtk=p.active_pkm))
 
 
     # At this point, battle is over. Assign a winner and return
-    if dfdr.HP <= 0 and atkr.HP <= 0: winner = -1 # tie
-    elif dfdr.HP <= 0: winner = 1 # atkr wins
-    elif (atkr.HP <= 0 or t >= wd.timelimit_ms): winner = 2 # dfdr wins
+    if not wd.battle_lengths:
+        wd.battle_lengths.append(t)
+    atkr_alive = any([p.alive() for p in wd.atkr_parties])
+    dfdr_alive = wd.dfdr_party.alive()
+    if not atkr_alive and not dfdr_alive:
+        winner = -1 # tie
+    elif atkr_alive:
+        winner = 1 # atkr wins
+    elif (dfdr_alive or t >= wd.timelimit_ms):
+        winner = 2 # dfdr wins
     else: 
         print("THIS TEXT SHOULD NEVER BE SEEN. REPORT TO FELIX!")
         sys.exit(1)
 
-    print('before returning, t =', t)
-    return winner, t
+    return winner
 
 
 
+'''
+This functions seems to be outdated
+'''
+'''
 def raid_singleteam_battle(wd):
     # battle a raid with just one person's team.
     wd.tline = timeline()
