@@ -13,20 +13,20 @@ def debug():
     debug_world.new_battle_bool = True
 
     # assign (single) atkr and dfdr
-    atkr = pokemon(debug_world.speciesdata[getPokedexNumber('machamp', debug_world.speciesdata)], [15,15,15],
-                    CPM(40, debug_world.CPMultiplier), debug_world.fmovedata['counter'],
-                    debug_world.cmovedata['dynamic punch'], poketype="player")
-    atkr2 = pokemon(debug_world.speciesdata[getPokedexNumber('dragonite', debug_world.speciesdata)], [15,15,15],
-                    CPM(40, debug_world.CPMultiplier), debug_world.fmovedata['dragon tail'],
-                    debug_world.cmovedata['dragon claw'], poketype="player")
+    atkr = pokemon(debug_world.speciesdata[getPokedexNumber('golem', debug_world.speciesdata)], [15,15,15],
+                    CPM(40, debug_world.CPMultiplier), debug_world.fmovedata['mud slap'],
+                    debug_world.cmovedata['earthquake'], poketype="player")
+##    atkr2 = pokemon(debug_world.speciesdata[getPokedexNumber('dragonite', debug_world.speciesdata)], [15,15,15],
+##                    CPM(40, debug_world.CPMultiplier), debug_world.fmovedata['dragon tail'],
+##                    debug_world.cmovedata['dragon claw'], poketype="player")
     
-    dfdr = pokemon(debug_world.speciesdata[getPokedexNumber('blissey', debug_world.speciesdata)], [15,15,15],
-                    CPM(40, debug_world.CPMultiplier), debug_world.fmovedata['pound'], 
-                    debug_world.cmovedata['dazzling gleam'], poketype="raid_boss", raid_tier=3)
+    dfdr = pokemon(debug_world.speciesdata[getPokedexNumber('jolteon', debug_world.speciesdata)], [15,15,15],
+                    CPM(40, debug_world.CPMultiplier), debug_world.fmovedata['thunder shock'], 
+                    debug_world.cmovedata['thunder'], poketype="raid_boss", raid_tier=3)
     
     debug_world.atkr_parties.append(party([copy.deepcopy(atkr) for _ in range(6)]))
     
-    debug_world.atkr_parties.append(party([copy.deepcopy(atkr2) for _ in range(6)]))
+##    debug_world.atkr_parties.append(party([copy.deepcopy(atkr2) for _ in range(6)]))
     
     debug_world.dfdr_party.add(dfdr)
  
@@ -34,7 +34,7 @@ def debug():
     debug_world.raid_tier = 3
     debug_world.dodgeCMovesIfFree = False
     debug_world.randomness = True
-    debug_world.weather = 'CLOUDY'
+    debug_world.weather = 'EXTREME'
 
     for n in range(1):
         print("simulation #", n+1)

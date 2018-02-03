@@ -508,7 +508,7 @@ def battle(wd):
         for p in wd.atkr_parties:
             atkr = p.active_pkm
             tline.add(event("atkrEnter", 0, pkmn_usedAtk=atkr))
-            tline.add(event("atkrFree", 0, pkmn_usedAtk=atkr))
+            tline.add(event("atkrFree", 100, pkmn_usedAtk=atkr))
     else:
         t = wd.starting_t_ms
 ##        if len(tline.lst)==0 or wd.starting_t_ms==-1:
@@ -602,10 +602,10 @@ def battle(wd):
         wd.elog.append(this_event)
 
         # for debug
-##        print("Post-Processing:", t, this_event.name,
-##              this_event.pkmn_usedAtk.name if this_event.pkmn_usedAtk else "",
-##              this_event.move_hurt_by.name if this_event.move_hurt_by else "",
-##              "pkmn_hurt HP:" + str(this_event.pkmn_hurt.HP) if this_event.pkmn_hurt else "")
+        print("Post-Processing:", t, this_event.name,
+             this_event.pkmn_usedAtk.name if this_event.pkmn_usedAtk else "",
+             this_event.move_hurt_by.name if this_event.move_hurt_by else "",
+              "pkmn_hurt HP:" + str(this_event.pkmn_hurt.HP) if this_event.pkmn_hurt else "")
         
         # Make sure to finish all events at time t before checking battle status
         if len(tline.lst) > 0 and t == tline.lst[0].t:
@@ -631,9 +631,10 @@ def battle(wd):
                         
             # 2. check and manage attacker(s)
             for p in wd.atkr_parties:
-                if p.active_pkm.HP <= 0 and p.alive():
+                atkr = p.active_pkm
+                if atkr.HP <= 0 and p.alive():
                     # This pokemon out
-                    p.active_pkm.t_leave_ms = t
+                    atkr.t_leave_ms = t
                     # Bring the next Pokemon to the field
                     p.next_pkmn_up()
                     for e in tline:
@@ -653,10 +654,10 @@ def battle(wd):
     dfdr_alive = wd.dfdr_party.alive()
     if not atkr_alive and not dfdr_alive:
         winner = -1 # tie
-    elif atkr_alive:
-        winner = 1 # atkr wins
     elif (dfdr_alive or t >= wd.timelimit_ms):
         winner = 2 # dfdr wins
+    elif atkr_alive:
+        winner = 1 # atkr wins
     else: 
         print("THIS TEXT SHOULD NEVER BE SEEN. REPORT TO FELIX!")
         sys.exit(1)
