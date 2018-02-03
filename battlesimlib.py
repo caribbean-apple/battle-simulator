@@ -182,7 +182,6 @@ class party:
         self.active_pkm = None
         for pkm in pkm_list:
             self.add(pkm)
-        self.tdo = 0
 
     def __iter__(self):
         # So you don't have to write "for pkm in some_party.lst:"
@@ -217,6 +216,8 @@ class party:
                 return True
         return False
 
+    def tdo(self):
+        return sum(pkm.total_damage_output for pkm in self)
 
 
 
@@ -271,8 +272,7 @@ class world:
             pkm.reset_stats()
         self.elog = []
         self.tline = timeline()
-
-
+        self.battle_lengths = []
 
 '''
     FUNCTIONS
@@ -505,16 +505,15 @@ def battle(wd):
     if wd.new_battle_bool:
         t = 0
         initial_dfdr_events(wd)
-        wd.new_battle_bool = False
         for p in wd.atkr_parties:
             atkr = p.active_pkm
             tline.add(event("atkrEnter", 0, pkmn_usedAtk=atkr))
             tline.add(event("atkrFree", 0, pkmn_usedAtk=atkr))
     else:
         t = wd.starting_t_ms
-        if len(tline.lst)==0 or wd.starting_t_ms==-1:
-            raise Exception("\nFor battles which start in the middle, "
-                + "you must input starting_t_ms and timeline.\n")
+##        if len(tline.lst)==0 or wd.starting_t_ms==-1:
+##            raise Exception("\nFor battles which start in the middle, "
+##                + "you must input starting_t_ms and timeline.\n")
 
         
     if wd.battle_type == "raid":
@@ -568,16 +567,16 @@ def battle(wd):
             dmg_taker.total_energy_gained += hurtEnergyGain
 
             dmg_giver = this_event.pkmn_usedAtk
-            dmg_giver.parent_party.tdo += this_event.dmg
+            dmg_giver.total_damage_output += this_event.dmg
 
             if "atkr" in this_event.name: # atkrHurt extra handling
                 if dmg_taker.HP <= 0:
-                    dmg_giver.parent_party.tdo += this_pkm.HP
+                    dmg_giver.total_damage_output += this_pkm.HP
             else: # dfdrHurt extra handling
                 dmg_taker.nonbackground_damage_taken += this_event.dmg
                 if dmg_taker.HP <= 0: 
                     dmg_taker.nonbackground_damage_taken += this_pkm.HP
-                    dmg_giver.parent_party.tdo += this_pkm.HP
+                    dmg_giver.total_damage_output += this_pkm.HP
                     wd.battle_lengths.append(t)
         
         # case 3: a pokemon gains/loses energy
@@ -594,15 +593,19 @@ def battle(wd):
             dfdr.total_energy_gained += hurtEnergyGain
             this_event.pkmn_hurt = dfdr
 
+        # case 5: a pokemon enters
+        elif "Enter" in this_event.name:
+            this_event.pkmn_usedAtk.t_enter_ms = t
+
 
         # Add this event the log
         wd.elog.append(this_event)
 
         # for debug
-        print("Post-Processing:", t, this_event.name,
-              this_event.pkmn_usedAtk.name if this_event.pkmn_usedAtk else "",
-              this_event.move_hurt_by.name if this_event.move_hurt_by else "",
-              "pkmn_hurt HP:" + str(this_event.pkmn_hurt.HP) if this_event.pkmn_hurt else "")
+##        print("Post-Processing:", t, this_event.name,
+##              this_event.pkmn_usedAtk.name if this_event.pkmn_usedAtk else "",
+##              this_event.move_hurt_by.name if this_event.move_hurt_by else "",
+##              "pkmn_hurt HP:" + str(this_event.pkmn_hurt.HP) if this_event.pkmn_hurt else "")
         
         # Make sure to finish all events at time t before checking battle status
         if len(tline.lst) > 0 and t == tline.lst[0].t:
@@ -612,22 +615,26 @@ def battle(wd):
             
             # 1. check and manage defender
             dfdr = wd.dfdr_party.active_pkm
-            if dfdr.HP <= 0: 
-                    dfdr.nonbackground_damage_taken += this_pkm.HP
-                    wd.battle_lengths.append(t)
-                    tline.lst = [e for e in tline if dfdr not in (e.pkmn_usedAtk, e.pkmn_hurt)]
-                    if wd.dfdr_party.alive():
-                        # Next defender in
-                        wd.dfdr_party.next_pkmn_up()
-                        t = 0
-                        wd.tline = timeline()
-                        tline = wd.tline
-                        initial_dfdr_events(wd)
+            if dfdr.HP <= 0:
+                # This pokemon out
+                dfdr.t_leave_ms = t
+                dfdr.nonbackground_damage_taken += this_pkm.HP
+                wd.battle_lengths.append(t)
+                tline.lst = [e for e in tline if dfdr not in (e.pkmn_usedAtk, e.pkmn_hurt)]
+                if wd.dfdr_party.alive():
+                    # Next defender in
+                    wd.dfdr_party.next_pkmn_up()
+                    t = 0
+                    wd.tline = timeline()
+                    tline = wd.tline
+                    initial_dfdr_events(wd)
                         
             # 2. check and manage attacker(s)
             for p in wd.atkr_parties:
                 if p.active_pkm.HP <= 0 and p.alive():
-                    # Time to bring the next Pokemon to the field
+                    # This pokemon out
+                    p.active_pkm.t_leave_ms = t
+                    # Bring the next Pokemon to the field
                     p.next_pkmn_up()
                     for e in tline:
                         if e.pkmn_hurt is atkr:
@@ -732,5 +739,5 @@ def raid_singleteam_battle(wd):
     return raidwinner, t
 
 
-
+'''
 

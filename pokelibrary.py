@@ -122,7 +122,8 @@ class pokemon:
         self.dex = species.dex
         self.type1 = species.type1
         self.type2 = species.type2    
-        self.energy = 0    
+        self.energy = 0
+        self.total_damage_output = 0
         self.total_energy_gained = 0
 
         if poketype == "player":
@@ -177,6 +178,8 @@ class pokemon:
         self.HP = self.maxHP
         self.energy = 0
         self.nonbackground_damage_taken = 0
+        self.total_energy_gained = 0
+        self.total_damage_output = 0
         self.total_energy_gained = 0
 
     def printstatus(self):
@@ -432,7 +435,7 @@ def importAllGM(GMFilesInChronologicalOrder = [
     return fmovedata, cmovedata, speciesdata, CPMultiplier, typeadvantages
 
 def CPM(level, CPMultiplier):
-    if (level%0.5 != 0) or level < 1 or level > 40:
+    if (level != round(level)) or level < 1 or level > 40:
         raise Exception("you tard, %f is not a valid level.\n" % level)
     return CPMultiplier[int(2*level-2)]
 

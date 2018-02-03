@@ -64,10 +64,10 @@ def debug():
     print()
 
     for p in debug_world.atkr_parties:
-        print("Team",p,"TDO:",p.tdo)
+        print("Team",p,"TDO:",p.tdo())
         for atkr in p:
             atkr.printstatus()
-            print("DPS: %.2f    EPS gain: %.2f" % (p.tdo/lengthsecs,
+            print("DPS: %.2f    EPS gain: %.2f" % (atkr.total_damage_output/lengthsecs,
                                                    atkr.total_energy_gained/lengthsecs)) 
     
     

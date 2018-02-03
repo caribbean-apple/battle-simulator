@@ -3,6 +3,7 @@ import copy
 import itertools
 import time
 import math
+import csv
 try: input = raw_input
 except NameError: pass
 
@@ -68,13 +69,14 @@ bsl.trollMode = False
 bsl.showlog = False
 bsl.gymmode = True
 
-input_csv = "pokemoninput_raid.csv"
-output_csv = "battlesoutput.csv"
+input_csv = "input\\pokemoninput_raid.csv"
+output_csv = "output\\battlesoutput.csv"
 
 input_col_headers = [
     "atkr name or pokedex number",
     "atkr fmove",
     "atkr cmove",
+    "raid tier",
     "raid boss",
     "boss fmove",
     "boss cmove",
@@ -111,53 +113,59 @@ DPSdevi = 19
 TDOi = 32
 TDOdevi = 33
 
-ans1 = input("Select the optimal team of 6 after simulations end? y/n: ")
-select_optimal_team = True if ans1 in ['y', 'yes', 'yy'] else False
+##ans1 = input("Select the optimal team of 6 after simulations end? y/n: ")
+##select_optimal_team = True if ans1 in ['y', 'yes', 'yy'] else False
+select_optimal_team = False
 
 print("Importing game master file. It should be in this folder, named \n'%s'..." %
     GMfilepath)
-fmovedata, cmovedata, speciesdata, CPMultiplier, typeadvantages = \
-    plib.importAllGM()
-print("This program needs input via a csv file named 'pokemoninput_raid.csv'. "
-    + "if you want to change the input, open it in excel. "
-    + "The csv file must be in the same folder as this script.")
-data = cv.importcsv(input_csv,
-    typelist = ['s', 's', 's', 's', 's', 's',  # [0-5]: names and moves
-        'f', 'i', 'i', 'i',     # [6-9]:   atkr lvl and IVs
-        'i', 'i',               # [10-11]: nOtherPlayers, nRepeats
-        'b', 'b'])              # [12-13]: dodgeCmovesIfFree, randomness)
 
-def expandColumnsOfSingleInputRow(inputrow, fmovedata, cmovedata, speciesdata, atkrDexNumber, dfdrDexNumber):
+# Construct a new world object
+rbs_world = bsl.world()
+rbs_world.importAllGM()
+
+print("This program needs input via a csv file named 'pokemoninput_raid.csv'. "
+    + "if you want to change the input, open it in excel. ")
+
+data = cv.importcsv(input_csv,
+    typelist = ['s', 's', 's',      # [0-2]: attacker name and attacker moves
+                'i', 's', 's', 's', # [3-6]: raid tier, boss name and boss moves
+                'f', 'i', 'i', 'i', # [7-10]: atkr lvl and IVs
+                'i', 'i',           # [11-12]: nOtherPlayers, nRepeats
+                'b', 'b'])          # [13-14]: dodgeCmovesIfFree, randomness)
+
+
+def expandColumnsOfSingleInputRow(inputrow, wd, atkrDexNumber, dfdrDexNumber):
     # if "all" was written, write out all combinations.
-    atkr_species = speciesdata[atkrDexNumber]
-    dfdr_species = speciesdata[dfdrDexNumber]
+    atkr_species = wd.speciesdata[atkrDexNumber]
+    dfdr_species = wd.speciesdata[dfdrDexNumber]
     if "all" in inputrow[1]:
         atkrFMovesToSimulate = atkr_species.fmoves
         if "non legacy" in inputrow[1]:
             atkrFMovesToSimulate = \
                 [x for x in atkrFMovesToSimulate if not (x.name in atkr_species.legacyfmnames)]
-    else: atkrFMovesToSimulate = [plib.getFMoveObject(inputrow[1],fmovedata)]
+    else: atkrFMovesToSimulate = [plib.getFMoveObject(inputrow[1], wd.fmovedata)]
 
     if "all" in inputrow[2]:
         atkrCMovesToSimulate = atkr_species.cmoves
         if "non legacy" in inputrow[2]:
             atkrCMovesToSimulate = \
                 [x for x in atkrCMovesToSimulate if not (x.name in atkr_species.legacycmnames)]
-    else: atkrCMovesToSimulate = [plib.getCMoveObject(inputrow[2], cmovedata)]
+    else: atkrCMovesToSimulate = [plib.getCMoveObject(inputrow[2], wd.cmovedata)]
 
-    if "all" in inputrow[4]:
+    if "all" in inputrow[5]:
         dfdrFMovesToSimulate = dfdr_species.fmoves
         if "non legacy" in inputrow[4]:
             dfdrFMovesToSimulate = \
                 [x for x in dfdrFMovesToSimulate if not (x.name in dfdr_species.legacyfmnames)]
-    else: dfdrFMovesToSimulate = [plib.getFMoveObject(inputrow[4], fmovedata)]
+    else: dfdrFMovesToSimulate = [plib.getFMoveObject(inputrow[5], wd.fmovedata)]
 
-    if "all" in inputrow[5]:
+    if "all" in inputrow[6]:
         dfdrCMovesToSimulate = dfdr_species.cmoves
         if "non legacy" in inputrow[5]:
             dfdrCMovesToSimulate = \
                 [x for x in dfdrCMovesToSimulate if not (x.name in dfdr_species.legacycmnames)]
-    else: dfdrCMovesToSimulate = [plib.getCMoveObject(inputrow[5], cmovedata)]
+    else: dfdrCMovesToSimulate = [plib.getCMoveObject(inputrow[6], wd.cmovedata)]
 
     return atkrFMovesToSimulate, atkrCMovesToSimulate, dfdrFMovesToSimulate, dfdrCMovesToSimulate
 
@@ -169,8 +177,8 @@ def format_move_names(inputrow_part1, atkr, dfdr, speciesdata):
     formatted_row = inputrow_part1
     formatted_row[1] = atkr.fmove.name
     formatted_row[2] = atkr.cmove.name
-    formatted_row[4] = dfdr.fmove.name
-    formatted_row[5] = dfdr.cmove.name
+    formatted_row[5] = dfdr.fmove.name
+    formatted_row[6] = dfdr.cmove.name
     
     # then mark legacy move names with a star
     if atkr.fmove.name in speciesdata[atkrDexNumber].legacyfmnames: 
@@ -178,14 +186,13 @@ def format_move_names(inputrow_part1, atkr, dfdr, speciesdata):
     if atkr.cmove.name in speciesdata[atkrDexNumber].legacycmnames: 
         formatted_row[2] = "*" + formatted_row[2]
     if dfdr.fmove.name in speciesdata[dfdrDexNumber].legacyfmnames: 
-        formatted_row[4] = "*" + formatted_row[4]
-    if dfdr.cmove.name in speciesdata[dfdrDexNumber].legacycmnames: 
         formatted_row[5] = "*" + formatted_row[5]
+    if dfdr.cmove.name in speciesdata[dfdrDexNumber].legacycmnames: 
+        formatted_row[6] = "*" + formatted_row[6]
     return formatted_row
 
-def raid_singleplayer_repeat(atkrs, dfdr, speciesdata, typeadvantages, n_repeats, 
-    nOtherPlayers, dodgeCMovesIfFree, randomness):
-    timelimit_ms = ( bsl.TIMELIMIT_LEGENDARYRAID_MS if plib.raidboss_dict[dfdr.name]["lvl"] == 5
+def raid_singleplayer_repeat(wd, n_repeats):
+    wd.timelimit_ms = ( bsl.TIMELIMIT_LEGENDARYRAID_MS if wd.raid_tier == 5
         else bsl.TIMELIMIT_NORMALRAID_MS )
 
     atkr_wincount = 0
@@ -197,11 +204,16 @@ def raid_singleplayer_repeat(atkrs, dfdr, speciesdata, typeadvantages, n_repeats
     for m in range(n_repeats):
         # a deepcopy will completely recreate the elements of the list, which is 
         # necessary since objects (pokemon) are mutable.
-        atkrs_copy = copy.deepcopy(atkrs)
-        dfdr_copy = copy.deepcopy(dfdr)
-        raidwinner, atkrs_postbattle, dfdr_postbattle, length_ms, tline = \
-            bsl.raid_singleteam_battle(atkrs_copy, dfdr_copy, speciesdata, typeadvantages, 
-                nOtherPlayers, dodgeCMovesIfFree, randomness)
+        wd.reset_stats()
+        
+##        raidwinner, atkrs_postbattle, dfdr_postbattle, length_ms, tline = \
+##            bsl.raid_singleteam_battle(atkrs_copy, dfdr_copy, speciesdata, typeadvantages, 
+##                nOtherPlayers, dodgeCMovesIfFree, randomness)
+        raidwinner = bsl.battle(wd)
+        atkrs_postbattle = wd.atkr_parties[0].lst
+        dfdr_postbattle = wd.dfdr_party.lst[0]
+        length_ms = wd.battle_lengths[0]
+        
 
         if raidwinner == 1: atkr_wincount += 1
 
@@ -231,7 +243,7 @@ def raid_singleplayer_repeat(atkrs, dfdr, speciesdata, typeadvantages, n_repeats
 
     # metric 6: Atkr DPS / minimum needed DPS
     boss_HP = plib.raidboss_dict[dfdr.name]['HP']
-    DPS_to_win = boss_HP / (timelimit_ms/1000)
+    DPS_to_win = boss_HP / (rbs_world.timelimit_ms/1000)
     normalized_DPS_avg = atkr_DPS_avg / DPS_to_win
     normalized_DPS_absdev = atkr_DPS_absdev / DPS_to_win
 
@@ -287,27 +299,28 @@ est_time_mins = (22/60) * (len(data)*int(data[1][11])/(47*10))
 print("Simulating battles. Estimated time needed: %.2f minutes." % est_time_mins)
 print("Takes six times as long with multiple attackers per input row.")
 print("================================================================")
-time.sleep(2)
+#time.sleep(2)
 outputdata = []
 for n in range(1,len(data)):
-    inputrow = [data[n][k].lower() for k in range(6)] + data[n][6:]
-    for k in range(6):
+    inputrow = data[n]
+    for k in [0,1,2,4,5,6]:
         inputrow[k] = inputrow[k].replace("_"," ").lower()
-        inputrow[k] = inputrow[k].replace("-"," ")
-        inputrow[k] = inputrow[k].replace(","," ")
+        inputrow[k] = inputrow[k].replace("-"," ").lower()
+        inputrow[k] = inputrow[k].replace(","," ").lower()
         
     atkr_name = inputrow[0]
-    dfdr_name = inputrow[3]
+    dfdr_name = inputrow[4]
+    rbs_world.raid_tier = int(inputrow[3])
     # inputrow[1] = atkr fmove
     # inputrow[2] = atkr cmove
-    # inputrow[4] = boss fmove
-    # inputrow[5] = boss cmove
+    # inputrow[5] = boss fmove
+    # inputrow[6] = boss cmove
 
     # extract from the input row
-    atkrDexNumber = plib.getPokedexNumber(atkr_name, speciesdata)
-    dfdrDexNumber = plib.getPokedexNumber(dfdr_name, speciesdata)    
+    atkrDexNumber = plib.getPokedexNumber(atkr_name, rbs_world.speciesdata)
+    dfdrDexNumber = plib.getPokedexNumber(dfdr_name, rbs_world.speciesdata) 
     atkrFMovesToSimulate, atkrCMovesToSimulate, dfdrFMovesToSimulate, dfdrCMovesToSimulate = (
-        expandColumnsOfSingleInputRow(inputrow, fmovedata, cmovedata, speciesdata, atkrDexNumber, dfdrDexNumber))
+        expandColumnsOfSingleInputRow(inputrow, rbs_world, atkrDexNumber, dfdrDexNumber))
     print("simulating:\n%s" % atkr_name, end=", ")
     for x in atkrFMovesToSimulate: print(x.name, end=" ")
     print("with ", end="")
@@ -318,12 +331,12 @@ for n in range(1,len(data)):
     for x in dfdrCMovesToSimulate: print(x.name, end=" ")
     print()
     print()
-    atkr_lvl = inputrow[6]
-    atkrIVs = inputrow[7:10]
-    nOtherPlayers = inputrow[10]
-    n_repeats = inputrow[11]
-    dodgeCMovesIfFree = inputrow[12]
-    randomness = inputrow[13]
+    atkr_lvl = inputrow[7]
+    atkrIVs = inputrow[8:11]
+    rbs_world.nOtherPlayers = inputrow[11]
+    n_repeats = inputrow[12]
+    rbs_world.dodgeCMovesIfFree = inputrow[13]
+    rbs_world.randomness = inputrow[14]
 
     if n_repeats == 0: raise Exception("Error: n_repeats must be > 0. Please modify input data.")
 
@@ -336,14 +349,17 @@ for n in range(1,len(data)):
     outputdata0 = []
     for atkr_fm, atkr_cm, dfdr_fm, dfdr_cm in itertools.product(
         atkrFMovesToSimulate, atkrCMovesToSimulate, dfdrFMovesToSimulate, dfdrCMovesToSimulate):
-            
+
         atkrs = [
-            plib.pokemon(speciesdata[atkrDexNumber], atkrIVs, plib.CPM(
-                atkr_lvl, CPMultiplier), 
+            plib.pokemon(rbs_world.speciesdata[atkrDexNumber], atkrIVs, plib.CPM(
+                atkr_lvl, rbs_world.CPMultiplier), 
             atkr_fm, atkr_cm, poketype="player") for _ in range(6) ]
         
-        dfdr = plib.pokemon(speciesdata[dfdrDexNumber], dfdrIVs, dfdrCPM, 
-            dfdr_fm, dfdr_cm, poketype="raid_boss")
+        dfdr = plib.pokemon(rbs_world.speciesdata[dfdrDexNumber], dfdrIVs, dfdrCPM, 
+            dfdr_fm, dfdr_cm, poketype="raid_boss", raid_tier=rbs_world.raid_tier)
+
+        rbs_world.atkr_parties = [bsl.party(atkrs)]
+        rbs_world.dfdr_party = bsl.party([dfdr])
 
         # results has:
         # win_percent, 
@@ -354,11 +370,10 @@ for n in range(1,len(data)):
         # dfdr_percent_DPS_avg, dfdr_percent_DPS_absdev,
         # TTL_s_avg, TTL_s_absdev,
         # TTW_s_avg, TTW_s_absdev
-        results = raid_singleplayer_repeat(atkrs, dfdr, speciesdata, typeadvantages, 
-            n_repeats, nOtherPlayers, dodgeCMovesIfFree, randomness)
+        results = raid_singleplayer_repeat(rbs_world, n_repeats)
         
-        inputrow_part1 = format_move_names([x for x in data[n][:6]], atkrs[0], dfdr, speciesdata)
-        inputrow_part2 = [x for x in data[n][6:]]
+        inputrow_part1 = format_move_names([x for x in data[n][:7]], atkrs[0], dfdr, rbs_world.speciesdata)
+        inputrow_part2 = [x for x in data[n][7:]]
         row = inputrow_part1 + inputrow_part2 + results
         outputdata0 += [row]
     # perform averaging. For now, only handle the non-legacy case, and for defenders only.
@@ -581,7 +596,7 @@ if select_optimal_team:
 outputdata.sort(key = lambda x: -x[DPS_RAi])
 print("Writing to file %s... " % output_csv, end="")
 
-csv_header = ["dodgeCMovesIfFree =", "", dodgeCMovesIfFree,  "randomness =", "", randomness]
+csv_header = ["dodgeCMovesIfFree =", "", rbs_world.dodgeCMovesIfFree,  "randomness =", "", rbs_world.randomness]
 csv_header2 = []
 if select_optimal_team:
     csv_header2 = [["optimal teams:"]]
@@ -592,7 +607,7 @@ if select_optimal_team:
         csv_header2 += [[""]]
 
 def write_to_csv(output_csv, col_headers, outputdata):
-    with open(output_csv, 'wb') as csvfile:
+    with open(output_csv, 'w', newline='') as csvfile:
         mywriter = csv.writer(csvfile)
         mywriter.writerow(csv_header)
         for line in csv_header2:

@@ -1,9 +1,0 @@
-atkr name or pokedex number,atkr fmove,atkr cmove,raid boss,boss fmove,boss cmove,atkr lvl,atkr atkIV,atkr defIV,atkr staIV,nOtherPlayers,nRepeats,dodgeCmovesIfFree?,randomness
-blissey,pound,hyper beam,jolteon,thunder shock,thunder,40,15,15,15,0,1000,TRUE,TRUE
-mewtwo,all,all,jolteon,thunder shock,thunder,40,15,15,15,0,1000,TRUE,TRUE
-rhydon,mud slap,earthquake,jolteon,thunder shock,thunder,40,15,15,15,0,1000,TRUE,TRUE
-dragonite,dragon breath,all,jolteon,thunder shock,thunder,40,15,15,15,0,1000,TRUE,TRUE
-dragonite,dragon tail,all,jolteon,thunder shock,thunder,40,15,15,15,0,1000,TRUE,TRUE
-golem,mud shot,earthquake,jolteon,thunder shock,thunder,40,15,15,15,0,1000,TRUE,TRUE
-gengar,all,shadow ball,jolteon,thunder shock,thunder,40,15,15,15,0,1000,TRUE,TRUE
-moltres,fire spin,overheat,jolteon,thunder shock,thunder,40,15,15,15,0,1000,TRUE,TRUE
