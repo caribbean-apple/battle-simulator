@@ -88,12 +88,12 @@ class _move:
 
 class fmove(_move):
     def __init__(self, name, power, dtype, energydelta, dws, duration):
-        super().__init__(name, power, dtype, energydelta, dws, duration, 'f')
+        super(fmove, self).__init__(name, power, dtype, energydelta, dws, duration, 'f')
 
 
 class cmove(_move):
     def __init__(self, name, power, dtype, energydelta, dws, duration):
-        super().__init__(name, power, dtype, energydelta, dws, duration, 'c')
+        super(cmove, self).__init__(name, power, dtype, energydelta, dws, duration, 'c')
 
 
 class pokemonspecies:
