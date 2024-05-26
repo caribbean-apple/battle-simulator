@@ -1,5 +1,5 @@
 battlesim v2.0 changes:
--Built on Desert's gym-sim modification and fixed a small situational bug. Gym mode can be turned on/off by opening "battlesimlib.py" and changing gymmode =True or =False. If =False it will be attacker vs attacker.
+-Gym mode can be turned on/off by opening "battlesimlib.py" and changing gymmode =True or =False. If =False it will be attacker vs attacker.
 -Individual runs are now run with the command 'python singlesim.py'
 -Added a batch CSV mode, where you can get the results of all battles that you put into a CSV very quickly. Run it with 'python batchsim.py', directions will be printed to the command line.
 -fixed a bug where some events wouldn't show in log
